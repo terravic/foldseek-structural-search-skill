@@ -149,6 +149,8 @@ def test_end_to_end_pipeline_and_dashboard_verification(
     for required_token in (
         "3Dmol",
         "highlightResidueRange",
+        "clearResidueHighlight",
+        'id="btn-reset-profile"',
         'id="software-viewport"',
         'id="theme-btn-light"',
         'id="theme-btn-dark"',

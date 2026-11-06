@@ -436,9 +436,32 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
+      gap: 8px;
       margin-bottom: 4px;
       font-size: 11px;
       color: var(--text-secondary);
+    }
+
+    .pane-strip-actions {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    #depth-svg {
+      display: block;
+      cursor: pointer;
+    }
+
+    button.mode-chip-btn.has-selection {
+      border-color: var(--viz-rose);
+      color: var(--viz-rose);
+    }
+
+    button.mode-chip-btn.has-selection:hover {
+      background-color: var(--bg-muted);
+      border-color: var(--viz-rose);
+      color: var(--viz-rose);
     }
 
     .tracks-pane {
@@ -1063,9 +1086,12 @@
       <div class="depth-pane">
         <div class="pane-strip-head mono">
           <span id="lbl-profile-caption">Residue Depth Profile (1..<span id="lbl-qlen">0</span>)</span>
-          <span id="lbl-peak-depth">Peak: 0 hits</span>
+          <div class="pane-strip-actions">
+            <span id="lbl-peak-depth">Peak: 0 hits</span>
+            <button type="button" class="mode-chip-btn mono" id="btn-reset-profile" title="Reset profile highlight and restore full 3D coloring" aria-label="Reset profile highlight">Reset</button>
+          </div>
         </div>
-        <svg id="depth-svg" width="100%" height="88" viewBox="0 0 680 88" preserveAspectRatio="none" role="img" aria-label="Per-residue profile"></svg>
+        <svg id="depth-svg" width="100%" height="88" viewBox="0 0 680 88" preserveAspectRatio="none" role="img" aria-label="Per-residue profile" title="Click to highlight residue window in 3D; click highlighted region or Reset to clear"></svg>
       </div>
       <div class="tracks-pane" id="tracks-pane-wrap">
         <div class="pane-strip-head mono">
@@ -2650,12 +2676,17 @@
         }
       }
 
-      window.highlightResidueRange = function (qStart, qEnd, targetLabel) {
+      window.highlightResidueRange = function (qStart, qEnd, targetLabel, fromProfile) {
         var statusEl = document.getElementById("viewer-selection-status");
         if (!qStart || !qEnd || qEnd < qStart) {
           state.highlightRange = null;
         } else {
-          state.highlightRange = { start: qStart, end: qEnd, label: targetLabel || "" };
+          state.highlightRange = {
+            start: qStart,
+            end: qEnd,
+            label: targetLabel || "",
+            fromProfile: !!fromProfile
+          };
         }
         statusEl.textContent = formatStatusReadout();
 
@@ -2669,6 +2700,7 @@
           } else {
             state.viewer3D.zoomTo({ model: state.queryModel }, 320);
           }
+          state.viewer3D.render();
         }
         renderDepthHistogram();
       };
@@ -2791,6 +2823,11 @@
         var trace = q.ca_trace || [];
         var prof = DASHBOARD_DATA.coverage_profile || [];
         var useBFactor = (state.profileMetric === "bfactor") || (!DASHBOARD_DATA.hits || !DASHBOARD_DATA.hits.length);
+
+        var resetBtn = document.getElementById("btn-reset-profile");
+        if (resetBtn) {
+          resetBtn.classList.toggle("has-selection", !!state.highlightRange);
+        }
 
         var nPts = useBFactor ? trace.length : prof.length;
         var captionEl = document.getElementById("lbl-profile-caption");
@@ -3971,8 +4008,8 @@
       }
 
       var _baseHighlightResidueRange = window.highlightResidueRange;
-      window.highlightResidueRange = function (qStart, qEnd, targetLabel) {
-        _baseHighlightResidueRange(qStart, qEnd, targetLabel);
+      window.highlightResidueRange = function (qStart, qEnd, targetLabel, fromProfile) {
+        _baseHighlightResidueRange(qStart, qEnd, targetLabel, fromProfile);
         updateSeqHighlightSelection();
       };
 
@@ -4585,20 +4622,65 @@
           renderDepthHistogram();
         });
 
+        function clearHighlightSelection() {
+          state.selectedRank = null;
+          if (state.targetModel && state.viewer3D) {
+            try { state.viewer3D.removeModel(state.targetModel); } catch (_e) {}
+            state.targetModel = null;
+            document.getElementById("target-overlay-status").textContent = "";
+          }
+          document.getElementById("btn-load-target-3d").style.display = "none";
+          window.highlightResidueRange(0, 0, "");
+          refreshAll();
+        }
+        window.clearResidueHighlight = clearHighlightSelection;
+
         document.getElementById("depth-svg").addEventListener("click", function (e) {
           var svg = e.currentTarget;
           var rect = svg.getBoundingClientRect();
           if (!rect || !rect.width) { return; }
           var relX = ((e.clientX - rect.left) / rect.width) * 680;
           var padL = 32, pW = 638;
+          if (relX < padL || relX > padL + pW) {
+            if (state.highlightRange) {
+              clearHighlightSelection();
+            }
+            return;
+          }
           var frac = Math.max(0, Math.min(0.9999, (relX - padL) / pW));
           var trace = (DASHBOARD_DATA.query_structure && DASHBOARD_DATA.query_structure.ca_trace) || [];
           if (!trace.length) { return; }
           var idx = Math.floor(frac * trace.length);
           var centerRes = trace[idx].res;
+          if (
+            state.highlightRange &&
+            state.highlightRange.fromProfile &&
+            centerRes >= state.highlightRange.start &&
+            centerRes <= state.highlightRange.end
+          ) {
+            clearHighlightSelection();
+            return;
+          }
           var wStart = trace[Math.max(0, idx - 2)].res;
           var wEnd = trace[Math.min(trace.length - 1, idx + 2)].res;
-          window.highlightResidueRange(wStart, wEnd, "Profile window around Res " + centerRes);
+          var hadSelectedRank = state.selectedRank !== null;
+          state.selectedRank = null;
+          window.highlightResidueRange(wStart, wEnd, "Profile window around Res " + centerRes, true);
+          if (hadSelectedRank) {
+            document.getElementById("btn-load-target-3d").style.display = "none";
+            refreshAll();
+          }
+        });
+
+        document.getElementById("btn-reset-profile").addEventListener("click", clearHighlightSelection);
+
+        window.addEventListener("keydown", function (e) {
+          if (e.key === "Escape" && state.highlightRange) {
+            var tag = e.target && e.target.tagName ? e.target.tagName.toUpperCase() : "";
+            if (tag !== "INPUT" && tag !== "TEXTAREA" && tag !== "SELECT") {
+              clearHighlightSelection();
+            }
+          }
         });
 
         document.getElementById("viewer-mode-label").addEventListener("click", function () {
@@ -4642,17 +4724,7 @@
           }
         });
 
-        document.getElementById("btn-clear-highlight").addEventListener("click", function () {
-          state.selectedRank = null;
-          if (state.targetModel && state.viewer3D) {
-            try { state.viewer3D.removeModel(state.targetModel); } catch (_e) {}
-            state.targetModel = null;
-            document.getElementById("target-overlay-status").textContent = "";
-          }
-          document.getElementById("btn-load-target-3d").style.display = "none";
-          window.highlightResidueRange(0, 0, "");
-          refreshAll();
-        });
+        document.getElementById("btn-clear-highlight").addEventListener("click", clearHighlightSelection);
 
         document.getElementById("btn-load-target-3d").addEventListener("click", function (e) {
           var url = e.currentTarget.getAttribute("data-url");
