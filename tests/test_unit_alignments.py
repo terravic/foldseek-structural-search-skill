@@ -129,3 +129,20 @@ def test_sample_fixture_analytics_and_clusters(sample_results_path: Path) -> Non
     clusters = analytics["functional_clusters"]
     assert len(clusters) >= 2
     assert all(c["count"] >= 1 and 0.0 <= c["mean_prob"] <= 1.0 for c in clusters)
+
+
+def test_second_sample_fixture_analytics(project_root: Path) -> None:
+    res2_path = project_root / "sample_data" / "sample_foldseek_results_2.json"
+    raw = json.loads(res2_path.read_text(encoding="utf-8"))
+    analytics = visualize_alignments.build_alignment_analytics(raw, fallback_query_len=96)
+
+    hits = analytics["hits"]
+    assert len(hits) == 26
+    assert hits[0]["accession"] == "1MBN_A"
+    assert len(analytics["database_breakdown"]) == 5
+    assert len(analytics["coverage_profile"]) == 96
+    regimes = {h["homology_regime"] for h in hits}
+    assert visualize_alignments.REGIME_HIGH_IDENTITY in regimes
+    assert visualize_alignments.REGIME_TWILIGHT_ZONE in regimes
+    assert visualize_alignments.REGIME_PARTIAL_MOTIF in regimes
+    assert visualize_alignments.REGIME_LOW_CONFIDENCE in regimes

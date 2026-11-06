@@ -52,6 +52,23 @@ def test_parse_synthetic_cif_metadata(sample_cif_path: Path) -> None:
     assert {pt["ss"] for pt in meta["ca_trace"]} == {"H", "E", "C"}
 
 
+def test_parse_second_synthetic_dimer_pdb_and_cif(project_root: Path) -> None:
+    pdb2 = project_root / "sample_data" / "sample_query_2.pdb"
+    cif2 = project_root / "sample_data" / "sample_query_2.cif"
+    meta_pdb = visualize_structure.parse_structure_metadata(pdb2)
+    meta_cif = visualize_structure.parse_structure_metadata(cif2)
+
+    for meta, expected_fmt in ((meta_pdb, "pdb"), (meta_cif, "cif")):
+        assert meta["viewer_format"] == expected_fmt
+        assert meta["chains"] == ["A", "B"]
+        assert meta["residue_count"] == 96
+        assert meta["atom_count"] == 748
+        assert len(meta["ca_trace"]) == 96
+        assert len(meta["atoms"]) == 748
+        assert 18.0 <= meta["mean_bfactor"] <= 45.0
+        assert {pt["ss"] for pt in meta["ca_trace"]} == {"H", "E", "C"}
+
+
 def test_mmcif_extension_supported(sample_cif_path: Path, tmp_path: Path) -> None:
     mmcif_copy = tmp_path / "synthetic_model.mmcif"
     mmcif_copy.write_text(sample_cif_path.read_text(encoding="utf-8"), encoding="utf-8")

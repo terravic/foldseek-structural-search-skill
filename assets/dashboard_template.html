@@ -4353,6 +4353,26 @@
         };
       }
 
+      function resetSessionUiControls() {
+        state.selectedRank = null;
+        state.highlightRange = null;
+        state.hoverResidueText = "";
+        state.searchQuery = "";
+        state.dbFilter = "ALL";
+        state.regimeFilter = "ALL";
+        state.minProb = 0;
+        state.minQCov = 0;
+        document.getElementById("filter-search").value = "";
+        document.getElementById("filter-regime").value = "ALL";
+        document.getElementById("filter-min-prob").value = "0";
+        document.getElementById("lbl-min-prob").textContent = "0.00";
+        document.getElementById("filter-min-qcov").value = "0";
+        document.getElementById("lbl-min-qcov").textContent = "0%";
+        document.getElementById("btn-load-target-3d").style.display = "none";
+        document.getElementById("target-overlay-status").textContent = "";
+        document.getElementById("viewer-selection-status").textContent = formatStatusReadout();
+      }
+
       window.loadStructureFromText = function (filename, rawText) {
         var qStruct = parseStructureClientSide(filename, rawText);
         var zeroProfile = [];
@@ -4376,8 +4396,7 @@
         };
 
         state.isCustomSession = true;
-        state.selectedRank = null;
-        state.highlightRange = null;
+        resetSessionUiControls();
         state.inspectorMode = "structure";
         state.profileMetric = "bfactor";
         state.structDetails = computeStructureDetails(qStruct);
@@ -4413,8 +4432,11 @@
         DASHBOARD_DATA.summary_kpis = norm.summary_kpis;
 
         state.isCustomSession = true;
-        state.selectedRank = null;
-        state.highlightRange = null;
+        if (state.targetModel && state.viewer3D) {
+          try { state.viewer3D.removeModel(state.targetModel); } catch (_e) {}
+          state.targetModel = null;
+        }
+        resetSessionUiControls();
         state.inspectorMode = DASHBOARD_DATA.hits.length ? "alignments" : "structure";
         state.profileMetric = DASHBOARD_DATA.hits.length ? "depth" : "bfactor";
 
@@ -4424,6 +4446,7 @@
         populateDbSelect();
         refresh3DStyle();
         renderDepthHistogram();
+        updateSeqHighlightSelection();
         refreshAll();
         setLoadStatus(
           "Attached " + DASHBOARD_DATA.hits.length + " alignments from " + (filename || "JSON"),
@@ -4436,8 +4459,7 @@
         DASHBOARD_DATA = JSON.parse(INITIAL_PAYLOAD_JSON);
         var hasHits = !!(DASHBOARD_DATA.hits && DASHBOARD_DATA.hits.length);
         state.isCustomSession = false;
-        state.selectedRank = null;
-        state.highlightRange = null;
+        resetSessionUiControls();
         state.inspectorMode = hasHits ? "alignments" : "structure";
         state.profileMetric = hasHits ? "depth" : "bfactor";
         state.structDetails = computeStructureDetails(DASHBOARD_DATA.query_structure);
