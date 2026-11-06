@@ -1,0 +1,214 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://foldseek-structural-search.local/schemas/dashboard_payload.json",
+  "title": "FoldseekDashboardPayload",
+  "description": "Normalized analytical data bundle consumed by the standalone Foldseek HTML5 dashboard.",
+  "type": "object",
+  "required": [
+    "title",
+    "generated_at_utc",
+    "system_theme",
+    "query_structure",
+    "summary_kpis",
+    "hits",
+    "coverage_profile",
+    "database_breakdown",
+    "functional_clusters",
+    "provenance"
+  ],
+  "properties": {
+    "title": { "type": "string", "minLength": 1 },
+    "generated_at_utc": { "type": "string", "minLength": 10 },
+    "system_theme": { "type": "string", "enum": ["light", "dark"] },
+    "query_structure": {
+      "type": "object",
+      "required": [
+        "filename",
+        "extension",
+        "viewer_format",
+        "chains",
+        "residue_count",
+        "atom_count",
+        "min_res_seq",
+        "max_res_seq",
+        "mean_bfactor",
+        "ca_trace",
+        "raw_coordinates"
+      ],
+      "properties": {
+        "filename": { "type": "string" },
+        "extension": { "type": "string", "enum": [".pdb", ".cif", ".mmcif"] },
+        "viewer_format": { "type": "string", "enum": ["pdb", "cif"] },
+        "chains": { "type": "array", "items": { "type": "string" } },
+        "residue_count": { "type": "integer", "minimum": 1 },
+        "atom_count": { "type": "integer", "minimum": 1 },
+        "min_res_seq": { "type": "integer" },
+        "max_res_seq": { "type": "integer" },
+        "mean_bfactor": { "type": "number" },
+        "min_bfactor": { "type": "number" },
+        "max_bfactor": { "type": "number" },
+        "ca_trace": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["res", "chain", "x", "y", "z", "b"],
+            "properties": {
+              "res": { "type": "integer" },
+              "chain": { "type": "string" },
+              "resn": { "type": "string" },
+              "x": { "type": "number" },
+              "y": { "type": "number" },
+              "z": { "type": "number" },
+              "b": { "type": "number" },
+              "ss": { "type": "string", "enum": ["H", "E", "C"] },
+              "ox": { "type": "number" },
+              "oy": { "type": "number" },
+              "oz": { "type": "number" }
+            }
+          }
+        },
+        "atoms": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["n", "rn", "c", "r", "x", "y", "z", "b", "e", "ss"],
+            "properties": {
+              "n": { "type": "string" },
+              "rn": { "type": "string" },
+              "c": { "type": "string" },
+              "r": { "type": "integer" },
+              "x": { "type": "number" },
+              "y": { "type": "number" },
+              "z": { "type": "number" },
+              "b": { "type": "number" },
+              "e": { "type": "string" },
+              "ss": { "type": "string", "enum": ["H", "E", "C"] }
+            }
+          }
+        },
+        "raw_coordinates": { "type": "string", "minLength": 1 }
+      }
+    },
+    "summary_kpis": {
+      "type": "object",
+      "required": [
+        "query_len",
+        "total_hits",
+        "high_confidence_hits",
+        "twilight_zone_hits",
+        "best_hit_accession",
+        "best_hit_evalue",
+        "databases_searched"
+      ],
+      "properties": {
+        "query_len": { "type": "integer", "minimum": 0 },
+        "total_hits": { "type": "integer", "minimum": 0 },
+        "high_confidence_hits": { "type": "integer", "minimum": 0 },
+        "twilight_zone_hits": { "type": "integer", "minimum": 0 },
+        "best_hit_accession": { "type": "string" },
+        "best_hit_evalue": { "type": "string" },
+        "databases_searched": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "hits": {
+      "type": "array",
+      "maxItems": 300,
+      "items": {
+        "type": "object",
+        "required": [
+          "rank",
+          "target_id",
+          "accession",
+          "description",
+          "database",
+          "prob",
+          "evalue",
+          "neg_log10_evalue",
+          "seq_identity_pct",
+          "q_start",
+          "q_end",
+          "q_len",
+          "q_cov_pct",
+          "q_cov_display",
+          "aln_len",
+          "homology_regime"
+        ],
+        "properties": {
+          "rank": { "type": "integer", "minimum": 1 },
+          "target_id": { "type": "string" },
+          "accession": { "type": "string" },
+          "description": { "type": "string" },
+          "organism": { "type": "string" },
+          "database": { "type": "string" },
+          "prob": { "type": "number", "minimum": 0.0, "maximum": 1.0 },
+          "prob_display": { "type": "string" },
+          "evalue": { "type": "number", "minimum": 0.0 },
+          "evalue_display": { "type": "string" },
+          "neg_log10_evalue": { "type": "number" },
+          "seq_identity_pct": { "type": "number", "minimum": 0.0, "maximum": 100.0 },
+          "seq_identity_display": { "type": "string" },
+          "q_start": { "type": "integer", "minimum": 0 },
+          "q_end": { "type": "integer", "minimum": 0 },
+          "q_len": { "type": "integer", "minimum": 0 },
+          "q_cov_pct": { "type": "number", "minimum": 0.0, "maximum": 100.0 },
+          "q_cov_display": { "type": "string" },
+          "t_start": { "type": "integer", "minimum": 0 },
+          "t_end": { "type": "integer", "minimum": 0 },
+          "t_len": { "type": "integer", "minimum": 0 },
+          "aln_len": { "type": "integer", "minimum": 0 },
+          "score": { "type": "number" },
+          "homology_regime": {
+            "type": "string",
+            "enum": [
+              "High-Identity Homolog",
+              "Remote Structural Homolog (Twilight Zone)",
+              "Local / Partial Motif Match",
+              "Low Confidence"
+            ]
+          },
+          "target_structure_url": { "type": ["string", "null"] },
+          "target_structure_format": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "coverage_profile": {
+      "type": "array",
+      "items": { "type": "integer", "minimum": 0 }
+    },
+    "database_breakdown": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["database", "count", "mean_prob"],
+        "properties": {
+          "database": { "type": "string" },
+          "count": { "type": "integer", "minimum": 0 },
+          "mean_prob": { "type": "number", "minimum": 0.0, "maximum": 1.0 }
+        }
+      }
+    },
+    "functional_clusters": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["label", "count", "mean_prob"],
+        "properties": {
+          "label": { "type": "string" },
+          "count": { "type": "integer", "minimum": 1 },
+          "mean_prob": { "type": "number", "minimum": 0.0, "maximum": 1.0 },
+          "top_accession": { "type": "string" }
+        }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "required": ["citation_text", "foldseek_url", "github_url", "disclaimer"],
+      "properties": {
+        "citation_text": { "type": "string" },
+        "foldseek_url": { "type": "string" },
+        "github_url": { "type": "string" },
+        "disclaimer": { "type": "string" }
+      }
+    }
+  }
+}

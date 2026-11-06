@@ -1,0 +1,4785 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Foldseek 3D protein structure alignment, residue conservation depth, and twilight-zone homology dashboard.">
+  <title>__DASHBOARD_TITLE__</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/3Dmol/2.4.2/3Dmol-min.js"></script>
+  <style>
+    :root,
+    [data-theme="light"] {
+      --bg-page: #FAFAF9;
+      --bg-surface: #FFFFFF;
+      --bg-muted: #F5F5F4;
+      --border-token: #E7E5E4;
+      --border-focus: #A8A29E;
+      --text-primary: #1C1917;
+      --text-secondary: #787774;
+      --grid-line: #E7E5E4;
+      --viz-teal: #0D9488;
+      --viz-amber: #D97706;
+      --viz-indigo: #4F46E5;
+      --viz-emerald: #059669;
+      --viz-rose: #E11D48;
+      --row-hover: #F5F5F4;
+      --row-active: rgba(13, 148, 136, 0.08);
+      --viewer-surface: #FFFFFF;
+    }
+
+    [data-theme="dark"] {
+      --bg-page: #0D0E11;
+      --bg-surface: #16171D;
+      --bg-muted: #1D1F27;
+      --border-token: #292A30;
+      --border-focus: #52545E;
+      --text-primary: #ECE8E2;
+      --text-secondary: #9A9895;
+      --grid-line: #292A30;
+      --viz-teal: #0D9488;
+      --viz-amber: #D97706;
+      --viz-indigo: #4F46E5;
+      --viz-emerald: #059669;
+      --viz-rose: #E11D48;
+      --row-hover: #1D1F27;
+      --row-active: rgba(13, 148, 136, 0.16);
+      --viewer-surface: #16171D;
+    }
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      background-color: var(--bg-page);
+      color: var(--text-primary);
+      font-family: "DM Sans", system-ui, sans-serif;
+      font-size: 13px;
+      line-height: 1.45;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .mono {
+      font-family: "DejaVu Sans Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-variant-numeric: tabular-nums;
+      font-feature-settings: "tnum" 1, "zero" 1;
+    }
+
+    .bento-page {
+      max-width: 1600px;
+      margin: 0 auto;
+      padding: 16px 20px 28px;
+      display: grid;
+      grid-template-columns: repeat(12, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .cell {
+      background-color: var(--bg-surface);
+      border: 1px solid var(--border-token);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    /* Tier 1A: Header Bar */
+    .header-cell {
+      grid-column: 1 / -1;
+      padding: 12px 16px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .header-main {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 16px;
+    }
+
+    .header-main h1 {
+      margin: 0;
+      font-family: "Instrument Serif", Georgia, serif;
+      font-weight: 400;
+      font-size: 26px;
+      line-height: 1.1;
+      letter-spacing: -0.01em;
+      color: var(--text-primary);
+    }
+
+    .header-telemetry {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 14px;
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .header-telemetry span strong {
+      color: var(--text-primary);
+      font-weight: 500;
+    }
+
+    .sep {
+      color: var(--border-token);
+      user-select: none;
+    }
+
+    /* Segmented Theme Control */
+    .theme-segmented {
+      display: inline-flex;
+      align-items: center;
+      background-color: var(--bg-muted);
+      border: 1px solid var(--border-token);
+      border-radius: 6px;
+      padding: 2px;
+      gap: 2px;
+    }
+
+    .theme-mode-btn {
+      appearance: none;
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: 4px;
+      height: 24px;
+      padding: 0 8px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-family: "DejaVu Sans Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      cursor: pointer;
+    }
+
+    .theme-mode-btn:hover {
+      color: var(--text-primary);
+    }
+
+    .theme-mode-btn.active {
+      background-color: var(--bg-surface);
+      border-color: var(--border-token);
+      color: var(--text-primary);
+    }
+
+    /* Tier 1B: 6-Cell Flat Telemetry Strip */
+    .kpi-cell {
+      grid-column: span 2;
+      padding: 11px 14px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 4px;
+    }
+
+    @media (max-width: 1180px) {
+      .kpi-cell { grid-column: span 4; }
+    }
+
+    @media (max-width: 680px) {
+      .kpi-cell { grid-column: span 6; }
+    }
+
+    .kpi-label {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      letter-spacing: 0.02em;
+    }
+
+    .kpi-metric {
+      font-family: "DejaVu Sans Mono", ui-monospace, monospace;
+      font-variant-numeric: tabular-nums;
+      font-size: 20px;
+      font-weight: 600;
+      line-height: 1.2;
+      color: var(--text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .kpi-sub {
+      font-family: "DejaVu Sans Mono", ui-monospace, monospace;
+      font-variant-numeric: tabular-nums;
+      font-size: 11px;
+      color: var(--text-secondary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .metric-emerald { color: var(--viz-emerald); }
+    .metric-indigo { color: var(--viz-indigo); }
+
+    /* Shared Flat Section Header & Controls */
+    .cell-head {
+      padding: 9px 14px;
+      border-bottom: 1px solid var(--border-token);
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      min-height: 40px;
+    }
+
+    .cell-title {
+      margin: 0;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-primary);
+      letter-spacing: -0.005em;
+    }
+
+    .cell-meta {
+      font-size: 11.5px;
+      color: var(--text-secondary);
+    }
+
+    .inline-controls {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .ctrl-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11.5px;
+      color: var(--text-secondary);
+    }
+
+    select,
+    input[type="text"],
+    button.ctrl-btn {
+      font-family: "DM Sans", sans-serif;
+      font-size: 12px;
+      line-height: 1.2;
+      color: var(--text-primary);
+      background-color: var(--bg-surface);
+      border: 1px solid var(--border-token);
+      border-radius: 5px;
+      height: 26px;
+      padding: 0 8px;
+      outline: none;
+    }
+
+    select:focus,
+    input[type="text"]:focus,
+    button.ctrl-btn:focus-visible {
+      border-color: var(--border-focus);
+    }
+
+    button.ctrl-btn {
+      cursor: pointer;
+      font-weight: 500;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      white-space: nowrap;
+    }
+
+    button.ctrl-btn:hover {
+      background-color: var(--bg-muted);
+    }
+
+    button.ctrl-btn.is-on {
+      border-color: var(--viz-teal);
+      color: var(--viz-teal);
+    }
+
+    button.ctrl-btn.accent-action {
+      border-color: var(--viz-indigo);
+      color: var(--viz-indigo);
+    }
+
+    /* Tier 2: Spatial Structure (5 cols) + Conservation & Coverage (7 cols) */
+    .structure-cell {
+      grid-column: span 5;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .coverage-cell {
+      grid-column: span 7;
+      display: flex;
+      flex-direction: column;
+    }
+
+    @media (max-width: 1100px) {
+      .structure-cell,
+      .coverage-cell {
+        grid-column: 1 / -1;
+      }
+    }
+
+    .sub-toolbar {
+      padding: 7px 14px;
+      border-bottom: 1px solid var(--border-token);
+      background-color: var(--bg-muted);
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .viewer-viewport {
+      position: relative;
+      width: 100%;
+      height: 420px;
+      background-color: var(--viewer-surface);
+      overflow: hidden;
+    }
+
+    #mol-viewer {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    #software-viewport {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: none;
+      cursor: grab;
+    }
+
+    #software-viewport:active {
+      cursor: grabbing;
+    }
+
+    .viewer-legend {
+      position: absolute;
+      left: 10px;
+      bottom: 8px;
+      z-index: 5;
+      pointer-events: none;
+      display: inline-flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 8px;
+      border-radius: 4px;
+      border: 1px solid var(--border-token);
+      background-color: var(--bg-surface);
+      opacity: 0.92;
+      font-size: 10.5px;
+      color: var(--text-secondary);
+    }
+
+    .legend-swatch {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 2px;
+      margin-right: 4px;
+      vertical-align: middle;
+    }
+
+    .legend-grad {
+      display: inline-block;
+      width: 44px;
+      height: 7px;
+      border-radius: 2px;
+      vertical-align: middle;
+      margin: 0 4px;
+    }
+
+    button.mode-chip-btn {
+      appearance: none;
+      background: transparent;
+      border: 1px solid var(--border-token);
+      border-radius: 4px;
+      padding: 2px 7px;
+      font-size: 11px;
+      color: var(--text-secondary);
+      cursor: pointer;
+    }
+
+    button.mode-chip-btn:hover {
+      color: var(--text-primary);
+      border-color: var(--border-focus);
+    }
+
+    .viewer-readout {
+      padding: 8px 14px;
+      border-top: 1px solid var(--border-token);
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 11.5px;
+      color: var(--text-secondary);
+      min-height: 34px;
+    }
+
+    /* Right Cell: Depth Profile + Track Matrix divided by thin 1px border */
+    .depth-pane {
+      padding: 10px 14px 8px;
+      border-bottom: 1px solid var(--border-token);
+    }
+
+    .pane-strip-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 4px;
+      font-size: 11px;
+      color: var(--text-secondary);
+    }
+
+    .tracks-pane {
+      padding: 8px 14px 10px;
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      min-height: 0;
+    }
+
+    .tracks-scroll {
+      height: 292px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      padding-right: 2px;
+    }
+
+    .track-line {
+      display: grid;
+      grid-template-columns: 34px 128px 1fr 70px;
+      align-items: center;
+      gap: 8px;
+      padding: 3px 6px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .track-line:hover {
+      background-color: var(--row-hover);
+    }
+
+    .track-line.selected {
+      background-color: var(--row-active);
+      outline: 1px solid var(--viz-rose);
+    }
+
+    .track-rk {
+      color: var(--text-secondary);
+      font-size: 11px;
+      text-align: right;
+    }
+
+    .track-id {
+      font-size: 11.5px;
+      color: var(--text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .track-axis {
+      position: relative;
+      height: 9px;
+      background-color: var(--bg-muted);
+      border: 1px solid var(--border-token);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .track-segment {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      min-width: 2px;
+    }
+
+    .track-coords {
+      font-size: 11px;
+      color: var(--text-secondary);
+      text-align: right;
+    }
+
+    .header-actions {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .structure-cell.drop-active {
+      border-color: var(--viz-teal);
+    }
+
+    .struct-details-pane {
+      padding: 8px 14px 10px;
+      display: none;
+      flex-direction: column;
+      flex: 1;
+      min-height: 0;
+    }
+
+    .struct-details-pane.active {
+      display: flex;
+    }
+
+    .struct-details-scroll {
+      height: 292px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 9px;
+      padding-right: 2px;
+    }
+
+    .struct-kv-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1px;
+      background-color: var(--border-token);
+      border: 1px solid var(--border-token);
+      border-radius: 4px;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    @media (max-width: 680px) {
+      .struct-kv-grid { grid-template-columns: 1fr; }
+    }
+
+    .struct-kv-item {
+      background-color: var(--bg-surface);
+      padding: 6px 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+    }
+
+    .struct-kv-label {
+      font-size: 10px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--text-secondary);
+    }
+
+    .struct-kv-val {
+      font-size: 11.5px;
+      color: var(--text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .struct-subhead {
+      font-size: 10.5px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--text-secondary);
+      margin: 2px 0 0;
+    }
+
+    .seq-viewer-box {
+      background-color: var(--bg-muted);
+      border: 1px solid var(--border-token);
+      border-radius: 4px;
+      padding: 6px 8px;
+      font-size: 11.5px;
+      line-height: 1.55;
+      word-break: break-all;
+    }
+
+    .seq-res-char {
+      cursor: pointer;
+      padding: 0 0.5px;
+      border-radius: 2px;
+    }
+
+    .seq-res-char:hover,
+    .seq-res-char.active {
+      background-color: var(--row-active);
+      outline: 1px solid var(--viz-teal);
+    }
+
+    .load-status-msg {
+      font-size: 11.5px;
+      color: var(--viz-teal);
+    }
+
+    .load-status-msg.is-err,
+    .load-status-msg.is-error {
+      color: var(--viz-rose);
+    }
+
+    /* Tier 3: Scatter Plot (7 cols) + DB / Family Distribution Tables (5 cols) */
+    .scatter-cell {
+      grid-column: span 7;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .dist-cell {
+      grid-column: span 5;
+      display: flex;
+      flex-direction: column;
+    }
+
+    @media (max-width: 1100px) {
+      .scatter-cell,
+      .dist-cell {
+        grid-column: 1 / -1;
+      }
+    }
+
+    .scatter-body {
+      padding: 10px 14px 12px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      flex: 1;
+    }
+
+    .series-key {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      padding-top: 6px;
+      border-top: 1px solid var(--border-token);
+      font-size: 11px;
+      color: var(--text-secondary);
+    }
+
+    .key-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .key-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 2px;
+      display: inline-block;
+    }
+
+    .dist-section {
+      padding: 10px 14px;
+    }
+
+    .dist-section + .dist-section {
+      border-top: 1px solid var(--border-token);
+    }
+
+    table.compact-mono-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: "DejaVu Sans Mono", ui-monospace, monospace;
+      font-variant-numeric: tabular-nums;
+      font-size: 11.5px;
+    }
+
+    table.compact-mono-table th {
+      font-weight: 500;
+      font-size: 10.5px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--text-secondary);
+      padding: 4px 6px 6px;
+      border-bottom: 1px solid var(--border-token);
+      text-align: left;
+    }
+
+    table.compact-mono-table th.num,
+    table.compact-mono-table td.num {
+      text-align: right;
+    }
+
+    table.compact-mono-table tbody tr {
+      border-bottom: 1px solid var(--border-token);
+      cursor: pointer;
+    }
+
+    table.compact-mono-table tbody tr:last-child {
+      border-bottom: none;
+    }
+
+    table.compact-mono-table tbody tr:hover {
+      background-color: var(--row-hover);
+    }
+
+    table.compact-mono-table tbody tr.active-filter {
+      background-color: var(--row-active);
+    }
+
+    table.compact-mono-table td {
+      padding: 5px 6px;
+      vertical-align: middle;
+    }
+
+    .inline-bar-wrap {
+      width: 72px;
+      height: 6px;
+      background-color: var(--bg-muted);
+      border-radius: 2px;
+      overflow: hidden;
+      display: inline-block;
+      vertical-align: middle;
+    }
+
+    .inline-bar-fill {
+      height: 100%;
+    }
+
+    /* Tier 4: Full-Width Monospaced Structural Alignment Records Table */
+    .records-cell {
+      grid-column: 1 / -1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .filter-strip {
+      padding: 8px 14px;
+      border-bottom: 1px solid var(--border-token);
+      background-color: var(--bg-muted);
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .filter-strip input[type="text"] {
+      flex: 1 1 220px;
+      min-width: 200px;
+    }
+
+    .range-ctrl {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11.5px;
+      color: var(--text-secondary);
+    }
+
+    .range-ctrl input[type="range"] {
+      width: 78px;
+      accent-color: var(--viz-teal);
+    }
+
+    .records-scroll {
+      width: 100%;
+      overflow-x: auto;
+      max-height: 500px;
+      overflow-y: auto;
+    }
+
+    table.records-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: "DejaVu Sans Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-variant-numeric: tabular-nums;
+      font-feature-settings: "tnum" 1, "zero" 1;
+      font-size: 12px;
+    }
+
+    table.records-table thead th {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      background-color: var(--bg-surface);
+      border-bottom: 1px solid var(--border-token);
+      padding: 8px 10px;
+      font-size: 10.5px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--text-secondary);
+      text-align: left;
+      white-space: nowrap;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    table.records-table thead th:hover {
+      color: var(--text-primary);
+    }
+
+    table.records-table thead th.num,
+    table.records-table tbody td.num {
+      text-align: right;
+    }
+
+    table.records-table tbody tr {
+      border-bottom: 1px solid var(--border-token);
+      cursor: pointer;
+    }
+
+    table.records-table tbody tr:hover {
+      background-color: var(--row-hover);
+    }
+
+    table.records-table tbody tr.selected {
+      background-color: var(--row-active);
+    }
+
+    table.records-table tbody td {
+      padding: 7px 10px;
+      vertical-align: middle;
+      white-space: nowrap;
+    }
+
+    td.annot-col {
+      max-width: 340px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color: var(--text-secondary);
+    }
+
+    .regime-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--text-secondary);
+    }
+
+    .regime-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 2px;
+      flex-shrink: 0;
+    }
+
+    .val-critical { color: var(--viz-rose); font-weight: 600; }
+    .val-validated { color: var(--viz-emerald); font-weight: 500; }
+    .val-nominal { color: var(--text-primary); }
+
+    .cov-inline {
+      display: inline-flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 7px;
+      min-width: 96px;
+    }
+
+    .cov-mini-track {
+      width: 38px;
+      height: 5px;
+      background-color: var(--bg-muted);
+      border-radius: 2px;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    .cov-mini-fill {
+      height: 100%;
+      background-color: var(--viz-teal);
+    }
+
+    /* Tier 5: Provenance Footer */
+    .footer-cell {
+      grid-column: 1 / -1;
+      padding: 11px 16px;
+      font-size: 11.5px;
+      color: var(--text-secondary);
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .footer-cell a {
+      color: var(--viz-teal);
+      text-decoration: none;
+    }
+
+    .footer-cell a:hover {
+      text-decoration: underline;
+    }
+
+    #floating-tooltip {
+      position: fixed;
+      pointer-events: none;
+      z-index: 40;
+      background-color: var(--bg-surface);
+      border: 1px solid var(--border-focus);
+      border-radius: 5px;
+      padding: 7px 9px;
+      font-size: 11.5px;
+      color: var(--text-primary);
+      max-width: 310px;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <main class="bento-page">
+    <!-- Tier 1A: Header -->
+    <header class="cell header-cell">
+      <div class="header-main">
+        <h1 id="dashboard-heading">__DASHBOARD_TITLE__</h1>
+        <div class="header-telemetry mono">
+          <span>File <strong id="hdr-filename"></strong></span>
+          <span class="sep">|</span>
+          <span>Mode <strong>3diaa</strong></span>
+          <span class="sep">|</span>
+          <span>UTC <span id="hdr-timestamp"></span></span>
+          <span class="load-status-msg" id="hdr-load-status"></span>
+        </div>
+      </div>
+      <div class="header-actions">
+        <input type="file" id="input-pdb-file" accept=".pdb,.ent,.cif,.mmcif" style="display:none;" aria-label="Load local PDB or mmCIF coordinate file">
+        <input type="file" id="input-json-file" accept=".json" style="display:none;" aria-label="Load Foldseek alignment JSON file">
+        <button type="button" class="ctrl-btn" id="btn-load-pdb" title="Load a local .pdb, .cif, or .mmcif file on demand">Load PDB / CIF</button>
+        <button type="button" class="ctrl-btn" id="btn-load-json" title="Attach a Foldseek results .json file to the active structure">Load Hits JSON</button>
+        <button type="button" class="ctrl-btn accent-action" id="btn-run-foldseek" title="Submit the active structure to Foldseek API on demand">Search Foldseek</button>
+        <button type="button" class="ctrl-btn" id="btn-restore-session" style="display:none;" title="Restore initial bundled structure and alignments">Restore Default</button>
+        <div class="theme-segmented" role="group" aria-label="Theme Mode">
+          <button type="button" id="theme-btn-light" class="theme-mode-btn" title="Light Theme" aria-label="Light Theme" data-theme-mode="light" aria-pressed="false">Light</button>
+          <button type="button" id="theme-btn-dark" class="theme-mode-btn" title="Dark Theme" aria-label="Dark Theme" data-theme-mode="dark" aria-pressed="false">Dark</button>
+          <button type="button" id="theme-btn-system" class="theme-mode-btn" title="System Theme" aria-label="System Theme" data-theme-mode="system" aria-pressed="true">System</button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Tier 1B: 6 Flat KPI Telemetry Cells -->
+    <section class="cell kpi-cell" aria-label="Query Length">
+      <span class="kpi-label">Query Length</span>
+      <span class="kpi-metric" id="kpi-query-len">--</span>
+      <span class="kpi-sub" id="kpi-query-meta">--</span>
+    </section>
+    <section class="cell kpi-cell" aria-label="Mean B-Factor or pLDDT">
+      <span class="kpi-label">Mean B-Factor / pLDDT</span>
+      <span class="kpi-metric" id="kpi-bfactor">--</span>
+      <span class="kpi-sub" id="kpi-bfactor-range">--</span>
+    </section>
+    <section class="cell kpi-cell" aria-label="Total Structural Hits">
+      <span class="kpi-label" id="kpi-lbl-3">Structural Hits</span>
+      <span class="kpi-metric" id="kpi-total-hits">0</span>
+      <span class="kpi-sub" id="kpi-dbs-searched">--</span>
+    </section>
+    <section class="cell kpi-cell" aria-label="Validated Fold Matches">
+      <span class="kpi-label" id="kpi-lbl-4">Validated Fold (Prob &ge; 0.90)</span>
+      <span class="kpi-metric metric-emerald" id="kpi-high-conf">0</span>
+      <span class="kpi-sub" id="kpi-sub-4">Global topology confidence</span>
+    </section>
+    <section class="cell kpi-cell" aria-label="Remote Twilight-Zone Homologs">
+      <span class="kpi-label" id="kpi-lbl-5">Twilight Zone (&lt;30% Seq ID)</span>
+      <span class="kpi-metric metric-indigo" id="kpi-twilight">0</span>
+      <span class="kpi-sub" id="kpi-sub-5">Prob &ge; 0.80 remote homologs</span>
+    </section>
+    <section class="cell kpi-cell" aria-label="Top Ranked Structural Match">
+      <span class="kpi-label" id="kpi-lbl-6">Top Match (Rank 1)</span>
+      <span class="kpi-metric" id="kpi-best-acc">--</span>
+      <span class="kpi-sub" id="kpi-best-eval">--</span>
+    </section>
+
+    <!-- Tier 2 Left: 3D Molecular Coordinate View -->
+    <section class="cell structure-cell" id="structure-drop-zone" aria-label="Structural Data Diagram">
+      <div class="cell-head">
+        <h2 class="cell-title">Structural Data Diagram</h2>
+        <div class="inline-controls">
+          <button type="button" class="ctrl-btn" id="btn-card-load-pdb" title="Open a .pdb or .cif structure file">Open .PDB</button>
+          <button type="button" class="mode-chip-btn mono" id="viewer-mode-label" title="Toggle 3D rendering engine">3D Coordinates</button>
+        </div>
+      </div>
+      <div class="sub-toolbar">
+        <label class="ctrl-label" for="select-repr">
+          <span>Style</span>
+          <select id="select-repr">
+            <option value="cartoon_sticks" selected>Cartoon + Sidechains</option>
+            <option value="cartoon">Cartoon Ribbon</option>
+            <option value="surface">Surface + Cartoon</option>
+            <option value="stick">Ball &amp; Stick</option>
+            <option value="sphere">Spacefill (VDW)</option>
+          </select>
+        </label>
+        <label class="ctrl-label" for="select-color">
+          <span>Color</span>
+          <select id="select-color">
+            <option value="spectrum" selected>N-to-C Spectrum</option>
+            <option value="ss">Secondary Structure</option>
+            <option value="bfactor">B-Factor / pLDDT</option>
+            <option value="conservation">Alignment Depth</option>
+            <option value="chain">Chain / Heteroatom</option>
+          </select>
+        </label>
+        <button type="button" class="ctrl-btn" id="btn-spin-toggle">Spin</button>
+        <button type="button" class="ctrl-btn" id="btn-reset-camera">Reset</button>
+        <button type="button" class="ctrl-btn" id="btn-clear-highlight">Clear Selection</button>
+        <button type="button" class="ctrl-btn accent-action" id="btn-load-target-3d" style="display:none;">Overlay Target CIF</button>
+      </div>
+      <div class="viewer-viewport">
+        <div id="mol-viewer" role="img" aria-label="3D macromolecular coordinate viewer"></div>
+        <canvas id="software-viewport" aria-label="3D macromolecular structure viewport"></canvas>
+        <div class="viewer-legend mono" id="viewer-color-legend" aria-live="polite"></div>
+      </div>
+      <div class="viewer-readout mono">
+        <span id="viewer-selection-status">Query: full chain (drag to orbit, drop .pdb/.cif to inspect)</span>
+        <span id="target-overlay-status"></span>
+      </div>
+    </section>
+
+    <!-- Tier 2 Right: 1D Residue Profile + Alignment Coverage / Structure Details Inspector -->
+    <section class="cell coverage-cell" aria-label="Residue Conservation and Structure Details">
+      <div class="cell-head">
+        <h2 class="cell-title" id="inspector-cell-title">Residue Conservation &amp; Alignment Coverage Map</h2>
+        <div class="inline-controls">
+          <label class="ctrl-label" for="select-inspector-mode">
+            <span>View</span>
+            <select id="select-inspector-mode">
+              <option value="alignments" selected>Alignment Coverage</option>
+              <option value="structure">Structure Details</option>
+            </select>
+          </label>
+          <label class="ctrl-label" for="select-profile-metric">
+            <span>Profile</span>
+            <select id="select-profile-metric">
+              <option value="depth" selected>Alignment Depth</option>
+              <option value="bfactor">B-Factor / pLDDT + SS</option>
+            </select>
+          </label>
+          <label class="ctrl-label" id="wrap-track-color" for="select-track-color">
+            <span>Track</span>
+            <select id="select-track-color">
+              <option value="regime" selected>Homology Regime</option>
+              <option value="prob">Probability Threshold</option>
+            </select>
+          </label>
+        </div>
+      </div>
+      <div class="depth-pane">
+        <div class="pane-strip-head mono">
+          <span id="lbl-profile-caption">Residue Depth Profile (1..<span id="lbl-qlen">0</span>)</span>
+          <span id="lbl-peak-depth">Peak: 0 hits</span>
+        </div>
+        <svg id="depth-svg" width="100%" height="88" viewBox="0 0 680 88" preserveAspectRatio="none" role="img" aria-label="Per-residue profile"></svg>
+      </div>
+      <div class="tracks-pane" id="tracks-pane-wrap">
+        <div class="pane-strip-head mono">
+          <span>Query Interval Tracks (qStartPos-qEndPos)</span>
+          <span id="lbl-track-count">0 shown</span>
+        </div>
+        <div class="tracks-scroll mono" id="tracks-container"></div>
+      </div>
+      <div class="struct-details-pane" id="struct-details-pane">
+        <div class="struct-details-scroll mono">
+          <div class="struct-kv-grid" id="struct-kv-grid"></div>
+          <div class="struct-subhead">Chain Inventory (click chain to highlight in 3D)</div>
+          <table class="compact-mono-table" aria-label="Chain Inventory">
+            <thead>
+              <tr>
+                <th>Chain</th>
+                <th class="num">Span</th>
+                <th class="num">Residues</th>
+                <th class="num">Heavy Atoms</th>
+                <th class="num">Mean B/pLDDT</th>
+                <th class="num">H / E / C</th>
+              </tr>
+            </thead>
+            <tbody id="struct-chains-tbody"></tbody>
+          </table>
+          <div class="struct-subhead">Secondary Structure Elements (click segment to zoom in 3D)</div>
+          <table class="compact-mono-table" aria-label="Secondary Structure Elements">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Element</th>
+                <th>Chain</th>
+                <th class="num">Span</th>
+                <th class="num">Len</th>
+                <th class="num">Mean B</th>
+                <th>Sequence</th>
+              </tr>
+            </thead>
+            <tbody id="struct-sse-tbody"></tbody>
+          </table>
+          <div class="struct-subhead">Primary Sequence (click residue to locate in 3D)</div>
+          <div class="seq-viewer-box" id="struct-seq-box"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Tier 3 Left: Homology Landscape Scatter Plot -->
+    <section class="cell scatter-cell" aria-label="Homology Landscape Scatter Plot">
+      <div class="cell-head">
+        <h2 class="cell-title">Homology Landscape</h2>
+        <div class="inline-controls">
+          <label class="ctrl-label" for="select-scatter-y">
+            <span>Y-Axis</span>
+            <select id="select-scatter-y">
+              <option value="neg_log10_evalue" selected>-log10(E-value)</option>
+              <option value="prob">Probability (Prob)</option>
+            </select>
+          </label>
+        </div>
+      </div>
+      <div class="scatter-body">
+        <svg id="scatter-svg" width="100%" height="260" viewBox="0 0 700 260" role="img" aria-label="Sequence identity versus alignment significance scatter plot"></svg>
+        <div class="series-key">
+          <span class="key-item"><span class="key-dot" style="background:#0D9488;"></span>High-Identity (&ge;30% ID, Prob &ge;0.80)</span>
+          <span class="key-item"><span class="key-dot" style="background:#4F46E5;"></span>Twilight Zone (&lt;30% ID, Prob &ge;0.80)</span>
+          <span class="key-item"><span class="key-dot" style="background:#D97706;"></span>Local / Partial Motif (0.50-0.79)</span>
+          <span class="key-item"><span class="key-dot" style="background:#E11D48;"></span>Low Confidence (&lt;0.50)</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Tier 3 Right: Database & Protein Family Distribution -->
+    <section class="cell dist-cell" aria-label="Database and Functional Family Distribution">
+      <div class="cell-head">
+        <h2 class="cell-title">Database &amp; Annotation Distribution</h2>
+        <span class="cell-meta">Click row to filter</span>
+      </div>
+      <div class="dist-section">
+        <table class="compact-mono-table" aria-label="Searched Database Distribution">
+          <thead>
+            <tr>
+              <th>Database</th>
+              <th class="num">Hits</th>
+              <th class="num">Mean Prob</th>
+              <th class="num">Share</th>
+            </tr>
+          </thead>
+          <tbody id="db-dist-tbody"></tbody>
+        </table>
+      </div>
+      <div class="dist-section">
+        <table class="compact-mono-table" aria-label="Functional Annotation Clusters">
+          <thead>
+            <tr>
+              <th>Annotation Cluster</th>
+              <th class="num">Hits</th>
+              <th class="num">Mean Prob</th>
+              <th class="num">Share</th>
+            </tr>
+          </thead>
+          <tbody id="cluster-dist-tbody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Tier 4: Full-Width Monospaced Structural Alignment Records -->
+    <section class="cell records-cell" aria-label="Structural Alignment Records">
+      <div class="cell-head">
+        <h2 class="cell-title">Structural Alignment Records</h2>
+        <div class="inline-controls">
+          <span class="cell-meta mono" id="table-count-label">0 / 0 records</span>
+          <button type="button" class="ctrl-btn" id="btn-export-csv">Export CSV</button>
+          <button type="button" class="ctrl-btn" id="btn-export-md">Export Markdown</button>
+        </div>
+      </div>
+      <div class="filter-strip">
+        <input type="text" id="filter-search" placeholder="Search accession, protein description, or organism..." aria-label="Filter alignment records">
+        <label class="ctrl-label" for="filter-database">
+          <span>DB</span>
+          <select id="filter-database">
+            <option value="ALL">All</option>
+          </select>
+        </label>
+        <label class="ctrl-label" for="filter-regime">
+          <span>Regime</span>
+          <select id="filter-regime">
+            <option value="ALL">All</option>
+            <option value="High-Identity Homolog">High-Identity</option>
+            <option value="Remote Structural Homolog (Twilight Zone)">Twilight Zone</option>
+            <option value="Local / Partial Motif Match">Local / Partial Motif</option>
+            <option value="Low Confidence">Low Confidence</option>
+          </select>
+        </label>
+        <label class="range-ctrl mono" for="filter-min-prob">
+          <span>Prob &ge; <strong id="lbl-min-prob">0.00</strong></span>
+          <input type="range" id="filter-min-prob" min="0" max="1" step="0.05" value="0">
+        </label>
+        <label class="range-ctrl mono" for="filter-min-qcov">
+          <span>Q-Cov &ge; <strong id="lbl-min-qcov">0%</strong></span>
+          <input type="range" id="filter-min-qcov" min="0" max="100" step="5" value="0">
+        </label>
+        <button type="button" class="ctrl-btn" id="btn-reset-filters">Reset</button>
+      </div>
+      <div class="records-scroll">
+        <table class="records-table" id="hits-table">
+          <thead>
+            <tr>
+              <th class="num" data-sort="rank">Rank</th>
+              <th data-sort="accession">Accession</th>
+              <th data-sort="description">Target Annotation</th>
+              <th data-sort="database">DB</th>
+              <th class="num" data-sort="q_start">Q-Span</th>
+              <th class="num" data-sort="t_start">T-Span</th>
+              <th class="num" data-sort="q_cov_pct">Q-Cov</th>
+              <th class="num" data-sort="prob">Prob</th>
+              <th class="num" data-sort="evalue">E-value</th>
+              <th class="num" data-sort="seq_identity_pct">Seq ID</th>
+              <th class="num" data-sort="aln_len">Aln Len</th>
+              <th class="num" data-sort="score">Score</th>
+              <th data-sort="homology_regime">Regime</th>
+            </tr>
+          </thead>
+          <tbody id="hits-tbody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Tier 5: Provenance & Licensing Footer -->
+    <footer class="cell footer-cell">
+      <div>
+        <strong>Citation:</strong> <span id="ftr-citation"></span>
+      </div>
+      <div>
+        <strong>Sources:</strong>
+        Foldseek Server (<a id="ftr-foldseek-url" href="https://search.foldseek.com/search" target="_blank" rel="noopener noreferrer">search.foldseek.com</a>) |
+        Source Repository (<a id="ftr-github-url" href="https://github.com/steineggerlab/foldseek" target="_blank" rel="noopener noreferrer">github.com/steineggerlab/foldseek</a>) |
+        Databases: wwPDB / RCSB PDB (CC0 1.0), AlphaFold DB, CATH, ESM Atlas, BFVD (CC-BY 4.0).
+        <span id="ftr-disclaimer"></span>
+      </div>
+    </footer>
+  </main>
+
+  <div id="floating-tooltip" role="tooltip"></div>
+
+  <script id="foldseek-dashboard-payload" type="application/json">__DASHBOARD_PAYLOAD_JSON__</script>
+  <script>
+    (function () {
+      "use strict";
+
+      var payloadNode = document.getElementById("foldseek-dashboard-payload");
+      var INITIAL_PAYLOAD_JSON = payloadNode.textContent;
+      var DASHBOARD_DATA = JSON.parse(INITIAL_PAYLOAD_JSON);
+
+      var REGIME_COLOR = {
+        "High-Identity Homolog": "#0D9488",
+        "Remote Structural Homolog (Twilight Zone)": "#4F46E5",
+        "Local / Partial Motif Match": "#D97706",
+        "Low Confidence": "#E11D48"
+      };
+
+      var REGIME_SHORT = {
+        "High-Identity Homolog": "High-Identity",
+        "Remote Structural Homolog (Twilight Zone)": "Twilight Zone",
+        "Local / Partial Motif Match": "Partial Motif",
+        "Low Confidence": "Low Confidence"
+      };
+
+      var hasInitialHits = !!(DASHBOARD_DATA.hits && DASHBOARD_DATA.hits.length);
+
+      var state = {
+        themeMode: "system",
+        resolvedTheme: "light",
+        isCustomSession: false,
+        inspectorMode: hasInitialHits ? "alignments" : "structure",
+        profileMetric: hasInitialHits ? "depth" : "bfactor",
+        structDetails: null,
+        selectedRank: null,
+        highlightRange: null,
+        spinning: false,
+        repr: "cartoon_sticks",
+        colorScheme: "spectrum",
+        trackColorBy: "regime",
+        scatterY: "neg_log10_evalue",
+        searchQuery: "",
+        dbFilter: "ALL",
+        regimeFilter: "ALL",
+        minProb: 0.0,
+        minQCov: 0.0,
+        sortKey: "rank",
+        sortAsc: true,
+        hasWebGL3D: false,
+        useFallback3D: false,
+        viewer3D: null,
+        queryModel: null,
+        targetModel: null,
+        rotX: -0.42,
+        rotY: 0.58,
+        panX: 0,
+        panY: 0,
+        zoom3D: 1.05,
+        hoverResidueText: ""
+      };
+
+      /* ---------------- Theme Engine ---------------- */
+      var mediaDark = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
+
+      function resolveSystemTheme() {
+        if (mediaDark && typeof mediaDark.matches === "boolean") {
+          return mediaDark.matches ? "dark" : "light";
+        }
+        return DASHBOARD_DATA.system_theme === "dark" ? "dark" : "light";
+      }
+
+      function applyTheme(mode, persist) {
+        state.themeMode = mode;
+        var effective = (mode === "system") ? resolveSystemTheme() : mode;
+        state.resolvedTheme = effective;
+        document.documentElement.setAttribute("data-theme", effective);
+
+        ["light", "dark", "system"].forEach(function (m) {
+          var btn = document.getElementById("theme-btn-" + m);
+          if (!btn) { return; }
+          var active = (m === mode);
+          btn.classList.toggle("active", active);
+          btn.setAttribute("aria-pressed", active ? "true" : "false");
+        });
+
+        if (persist) {
+          try { localStorage.setItem("foldseek_dashboard_theme", mode); } catch (_e) {}
+        }
+
+        if (state.viewer3D && !state.useFallback3D) {
+          state.viewer3D.setBackgroundColor(effective === "dark" ? "#16171D" : "#FFFFFF");
+          refresh3DStyle();
+        } else if (state.useFallback3D) {
+          updateViewerLegend();
+          drawFallback3D();
+        }
+        renderDepthHistogram();
+        renderScatterPlot();
+      }
+
+      function initTheme() {
+        var saved = null;
+        try { saved = localStorage.getItem("foldseek_dashboard_theme"); } catch (_e) {}
+        var initial = (saved === "light" || saved === "dark" || saved === "system") ? saved : "system";
+        applyTheme(initial, false);
+
+        ["light", "dark", "system"].forEach(function (m) {
+          document.getElementById("theme-btn-" + m).addEventListener("click", function () {
+            applyTheme(m, true);
+          });
+        });
+
+        if (mediaDark && mediaDark.addEventListener) {
+          mediaDark.addEventListener("change", function () {
+            if (state.themeMode === "system") {
+              applyTheme("system", false);
+            }
+          });
+        }
+      }
+
+      /* ---------------- Utilities ---------------- */
+      var tooltipEl = document.getElementById("floating-tooltip");
+      function showTooltip(evt, htmlStr) {
+        tooltipEl.innerHTML = htmlStr;
+        tooltipEl.style.display = "block";
+        var x = Math.min(window.innerWidth - 320, evt.clientX + 12);
+        var y = Math.min(window.innerHeight - 110, evt.clientY + 12);
+        tooltipEl.style.left = Math.max(8, x) + "px";
+        tooltipEl.style.top = Math.max(8, y) + "px";
+      }
+      function hideTooltip() {
+        tooltipEl.style.display = "none";
+      }
+      function esc(val) {
+        return String(val == null ? "" : val)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;");
+      }
+
+      /* ---------------- Color & 3D Macromolecular Geometry Engine ---------------- */
+      var CHAIN_PALETTE = ["#0D9488", "#4F46E5", "#D97706", "#059669", "#E11D48"];
+      var SPECTRUM_STOPS = ["#0D9488", "#4F46E5", "#D97706", "#E11D48"];
+      var BFACTOR_STOPS = ["#D97706", "#4F46E5", "#0D9488", "#059669"];
+      var VDW_RADII = { C: 1.70, N: 1.55, O: 1.52, S: 1.80, P: 1.80 };
+
+      function hexToRgb(hex) {
+        var h = String(hex || "#0D9488").replace("#", "");
+        if (h.length === 3) {
+          h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+        }
+        var n = parseInt(h, 16);
+        if (isNaN(n)) { return { r: 13, g: 148, b: 136 }; }
+        return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+      }
+
+      function rgbToHex(r, g, b) {
+        var cr = Math.max(0, Math.min(255, Math.round(r)));
+        var cg = Math.max(0, Math.min(255, Math.round(g)));
+        var cb = Math.max(0, Math.min(255, Math.round(b)));
+        return "#" + ((1 << 24) + (cr << 16) + (cg << 8) + cb).toString(16).slice(1).toUpperCase();
+      }
+
+      function lerpHex(h1, h2, t) {
+        var u = Math.max(0, Math.min(1, t));
+        var a = hexToRgb(h1), b = hexToRgb(h2);
+        return rgbToHex(a.r + (b.r - a.r) * u, a.g + (b.g - a.g) * u, a.b + (b.b - a.b) * u);
+      }
+
+      function multiStopHex(stops, t) {
+        var u = Math.max(0, Math.min(1, t));
+        if (stops.length < 2) { return stops[0] || "#0D9488"; }
+        var scaled = u * (stops.length - 1);
+        var idx = Math.min(stops.length - 2, Math.floor(scaled));
+        return lerpHex(stops[idx], stops[idx + 1], scaled - idx);
+      }
+
+      var molScene = null;
+
+      function vecSub(a, b) { return { x: a.x - b.x, y: a.y - b.y, z: a.z - b.z }; }
+      function vecAdd(a, b) { return { x: a.x + b.x, y: a.y + b.y, z: a.z + b.z }; }
+      function vecScale(a, s) { return { x: a.x * s, y: a.y * s, z: a.z * s }; }
+      function vecDot(a, b) { return a.x * b.x + a.y * b.y + a.z * b.z; }
+      function vecCross(a, b) {
+        return {
+          x: a.y * b.z - a.z * b.y,
+          y: a.z * b.x - a.x * b.z,
+          z: a.x * b.y - a.y * b.x
+        };
+      }
+      function vecNorm(a) {
+        var len = Math.sqrt(a.x * a.x + a.y * a.y + a.z * a.z);
+        return len > 1e-6 ? { x: a.x / len, y: a.y / len, z: a.z / len } : { x: 0, y: 1, z: 0 };
+      }
+      function catmullRom3D(p0, p1, p2, p3, t) {
+        var t2 = t * t, t3 = t2 * t;
+        return {
+          x: 0.5 * ((2 * p1.x) + (-p0.x + p2.x) * t + (2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * t2 + (-p0.x + 3 * p1.x - 3 * p2.x + p3.x) * t3),
+          y: 0.5 * ((2 * p1.y) + (-p0.y + p2.y) * t + (2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * t2 + (-p0.y + 3 * p1.y - 3 * p2.y + p3.y) * t3),
+          z: 0.5 * ((2 * p1.z) + (-p0.z + p2.z) * t + (2 * p0.z - 5 * p1.z + 4 * p2.z - p3.z) * t2 + (-p0.z + 3 * p1.z - 3 * p2.z + p3.z) * t3)
+        };
+      }
+
+      function rebuildMolecularScene() {
+        var q = DASHBOARD_DATA.query_structure || {};
+        var trace = q.ca_trace || [];
+        var rawAtoms = (q.atoms && q.atoms.length) ? q.atoms : trace.map(function (p) {
+          return { n: "CA", rn: p.resn || "GLY", c: p.chain || "A", r: p.res, x: p.x, y: p.y, z: p.z, b: p.b, e: "C", ss: p.ss || "C" };
+        });
+        var prof = DASHBOARD_DATA.coverage_profile || [];
+        var peakDepth = Math.max.apply(null, prof.concat([1]));
+
+        var cx = 0, cy = 0, cz = 0;
+        var srcPts = trace.length ? trace : rawAtoms;
+        srcPts.forEach(function (p) { cx += p.x; cy += p.y; cz += p.z; });
+        if (srcPts.length) {
+          cx /= srcPts.length; cy /= srcPts.length; cz /= srcPts.length;
+        }
+
+        var maxR = 4.0;
+        rawAtoms.forEach(function (a) {
+          var dx = a.x - cx, dy = a.y - cy, dz = a.z - cz;
+          var r = Math.sqrt(dx * dx + dy * dy + dz * dz);
+          if (r > maxR) { maxR = r; }
+        });
+
+        var resMap = {};
+        var resByNum = {};
+        var allResNums = [];
+        var ssCounts = { H: 0, E: 0, C: 0 };
+        var nTrace = Math.max(1, trace.length);
+
+        trace.forEach(function (pt, idx) {
+          var ss = (pt.ss === "H" || pt.ss === "E") ? pt.ss : "C";
+          ssCounts[ss] = (ssCounts[ss] || 0) + 1;
+          var depth = (pt.res >= 1 && pt.res <= prof.length) ? prof[pt.res - 1] : 0;
+          var entry = {
+            idx: idx,
+            seqFrac: nTrace > 1 ? idx / (nTrace - 1) : 0,
+            res: pt.res,
+            chain: pt.chain || "A",
+            resn: pt.resn || "UNK",
+            b: typeof pt.b === "number" ? pt.b : 80,
+            ss: ss,
+            depth: depth,
+            depthFrac: depth / peakDepth,
+            x: pt.x - cx,
+            y: pt.y - cy,
+            z: pt.z - cz,
+            hasO: typeof pt.ox === "number",
+            ox: (typeof pt.ox === "number" ? pt.ox : pt.x) - cx,
+            oy: (typeof pt.oy === "number" ? pt.oy : pt.y + 1) - cy,
+            oz: (typeof pt.oz === "number" ? pt.oz : pt.z) - cz
+          };
+          resMap[entry.chain + ":" + entry.res] = entry;
+          if (!resByNum[entry.res]) {
+            resByNum[entry.res] = entry;
+            allResNums.push(entry.res);
+          }
+        });
+
+        // Build centered heavy atoms & covalent bond graph
+        var atoms = rawAtoms.map(function (a, idx) {
+          var elem = String(a.e || a.n || "C").charAt(0).toUpperCase();
+          return {
+            id: idx,
+            n: a.n,
+            rn: a.rn || "UNK",
+            c: a.c || "A",
+            r: a.r,
+            x: a.x - cx,
+            y: a.y - cy,
+            z: a.z - cz,
+            b: typeof a.b === "number" ? a.b : 80,
+            e: elem,
+            ss: a.ss || (resMap[(a.c || "A") + ":" + a.r] ? resMap[(a.c || "A") + ":" + a.r].ss : "C"),
+            vdw: VDW_RADII[elem] || 1.70
+          };
+        });
+
+        var byResAtoms = {};
+        var sidechainNameSet = { CA: true };
+        var heteroSidechainSet = {};
+        var backboneSet = { N: true, CA: true, C: true, O: true, OXT: true };
+
+        atoms.forEach(function (at) {
+          var k = at.c + ":" + at.r;
+          if (!byResAtoms[k]) { byResAtoms[k] = []; }
+          byResAtoms[k].push(at);
+          if (at.n !== "N" && at.n !== "C" && at.n !== "O" && at.n !== "OXT") {
+            sidechainNameSet[at.n] = true;
+            if (at.n !== "CA" && at.e !== "C") {
+              heteroSidechainSet[at.n] = true;
+            }
+          }
+        });
+
+        var bonds = [];
+        Object.keys(byResAtoms).forEach(function (k) {
+          var grp = byResAtoms[k];
+          for (var i = 0; i < grp.length; i++) {
+            for (var j = i + 1; j < grp.length; j++) {
+              var a = grp[i], b = grp[j];
+              var dx = a.x - b.x, dy = a.y - b.y, dz = a.z - b.z;
+              var d2 = dx * dx + dy * dy + dz * dz;
+              if (d2 >= 0.85 && d2 <= 3.76) {
+                var isBB = !!(backboneSet[a.n] && backboneSet[b.n]);
+                bonds.push({ a: a, b: b, isBackbone: isBB });
+              }
+            }
+          }
+        });
+
+        // Inter-residue peptide C(i) -> N(i+1) bonds
+        for (var tIdx = 0; tIdx < trace.length - 1; tIdx++) {
+          var cur = trace[tIdx], nxt = trace[tIdx + 1];
+          if (cur.chain !== nxt.chain) { continue; }
+          var g1 = byResAtoms[cur.chain + ":" + cur.res] || [];
+          var g2 = byResAtoms[nxt.chain + ":" + nxt.res] || [];
+          var cAtom = null, nAtom = null;
+          for (var u = 0; u < g1.length; u++) { if (g1[u].n === "C") { cAtom = g1[u]; break; } }
+          for (var v = 0; v < g2.length; v++) { if (g2[v].n === "N") { nAtom = g2[v]; break; } }
+          if (cAtom && nAtom) {
+            var pdx = cAtom.x - nAtom.x, pdy = cAtom.y - nAtom.y, pdz = cAtom.z - nAtom.z;
+            if (pdx * pdx + pdy * pdy + pdz * pdz <= 3.8) {
+              bonds.push({ a: cAtom, b: nAtom, isBackbone: true });
+            }
+          }
+        }
+
+        // Build smooth Catmull-Rom 3D secondary-structure ribbon sub-segments
+        var chainRuns = [];
+        var activeRun = [];
+        trace.forEach(function (rawPt) {
+          var meta = resMap[(rawPt.chain || "A") + ":" + rawPt.res];
+          if (!meta) { return; }
+          if (!activeRun.length) {
+            activeRun.push(meta);
+          } else {
+            var prev = activeRun[activeRun.length - 1];
+            var ddx = meta.x - prev.x, ddy = meta.y - prev.y, ddz = meta.z - prev.z;
+            if (meta.chain === prev.chain && (ddx * ddx + ddy * ddy + ddz * ddz) <= 28.0) {
+              activeRun.push(meta);
+            } else {
+              chainRuns.push(activeRun);
+              activeRun = [meta];
+            }
+          }
+        });
+        if (activeRun.length) { chainRuns.push(activeRun); }
+
+        var ribbonSegments = [];
+        var SUB = 6;
+
+        chainRuns.forEach(function (run) {
+          var m = run.length;
+          if (m < 2) { return; }
+
+          var tangents = [];
+          var widths = [];
+          for (var i = 0; i < m; i++) {
+            var pPrev = run[Math.max(0, i - 1)];
+            var pNext = run[Math.min(m - 1, i + 1)];
+            var tang = vecNorm(vecSub(pNext, pPrev));
+            tangents.push(tang);
+
+            var cur = run[i];
+            var rawW;
+            if (cur.hasO) {
+              var oVec = { x: cur.ox - cur.x, y: cur.oy - cur.y, z: cur.oz - cur.z };
+              rawW = vecNorm(vecSub(oVec, vecScale(tang, vecDot(oVec, tang))));
+            } else {
+              var sec = vecSub(vecSub(pNext, cur), vecSub(cur, pPrev));
+              var proj = vecSub(sec, vecScale(tang, vecDot(sec, tang)));
+              var pLen = Math.sqrt(vecDot(proj, proj));
+              rawW = pLen > 1e-4 ? vecScale(proj, 1 / pLen) : vecNorm(vecCross(tang, { x: 0, y: 0, z: 1 }));
+            }
+            if (i > 0 && vecDot(rawW, widths[i - 1]) < 0) {
+              rawW = vecScale(rawW, -1);
+            }
+            widths.push(rawW);
+          }
+
+          // Smooth peptide-plane width vectors to prevent twisted beta-strands
+          for (var pass = 0; pass < 2; pass++) {
+            var smoothed = [];
+            for (var k = 0; k < m; k++) {
+              var wPrev = widths[Math.max(0, k - 1)];
+              var wCur = widths[k];
+              var wNext = widths[Math.min(m - 1, k + 1)];
+              var avg = {
+                x: 0.25 * wPrev.x + 0.50 * wCur.x + 0.25 * wNext.x,
+                y: 0.25 * wPrev.y + 0.50 * wCur.y + 0.25 * wNext.y,
+                z: 0.25 * wPrev.z + 0.50 * wCur.z + 0.25 * wNext.z
+              };
+              var ortho = vecSub(avg, vecScale(tangents[k], vecDot(avg, tangents[k])));
+              smoothed.push(vecNorm(ortho));
+            }
+            widths = smoothed;
+          }
+
+          for (var sIdx = 0; sIdx < m - 1; sIdx++) {
+            var c0 = run[Math.max(0, sIdx - 1)];
+            var c1 = run[sIdx];
+            var c2 = run[sIdx + 1];
+            var c3 = run[Math.min(m - 1, sIdx + 2)];
+
+            var ss = c1.ss;
+            var isStrandArrow = (ss === "E" && c2.ss !== "E");
+            var isHelix = (ss === "H" && c2.ss === "H") || (ss === "H" && sIdx > 0 && run[sIdx - 1].ss === "H");
+
+            for (var step = 0; step < SUB; step++) {
+              var u0 = step / SUB;
+              var u1 = (step + 1) / SUB;
+              var uMid = 0.5 * (u0 + u1);
+
+              var pos0 = catmullRom3D(c0, c1, c2, c3, u0);
+              var pos1 = catmullRom3D(c0, c1, c2, c3, u1);
+              var segTan = vecNorm(vecSub(pos1, pos0));
+
+              var wVec0 = vecNorm({
+                x: widths[sIdx].x * (1 - u0) + widths[sIdx + 1].x * u0,
+                y: widths[sIdx].y * (1 - u0) + widths[sIdx + 1].y * u0,
+                z: widths[sIdx].z * (1 - u0) + widths[sIdx + 1].z * u0
+              });
+              var wVec1 = vecNorm({
+                x: widths[sIdx].x * (1 - u1) + widths[sIdx + 1].x * u1,
+                y: widths[sIdx].y * (1 - u1) + widths[sIdx + 1].y * u1,
+                z: widths[sIdx].z * (1 - u1) + widths[sIdx + 1].z * u1
+              });
+              wVec0 = vecNorm(vecSub(wVec0, vecScale(segTan, vecDot(wVec0, segTan))));
+              wVec1 = vecNorm(vecSub(wVec1, vecScale(segTan, vecDot(wVec1, segTan))));
+              var nVec = vecNorm(vecCross(segTan, wVec0));
+
+              var kind = "coil";
+              var hw0 = 0.34, hw1 = 0.34, ht = 0.34;
+              if (ss === "E") {
+                kind = "ribbon";
+                ht = 0.24;
+                if (isStrandArrow) {
+                  hw0 = 1.96 * (1.0 - 0.86 * u0);
+                  hw1 = 1.96 * (1.0 - 0.86 * u1);
+                } else {
+                  hw0 = 1.22;
+                  hw1 = 1.22;
+                }
+              } else if (isHelix) {
+                kind = "ribbon";
+                hw0 = 1.04;
+                hw1 = 1.04;
+                ht = 0.21;
+              }
+
+              var owner = uMid < 0.5 ? c1 : c2;
+              ribbonSegments.push({
+                kind: kind,
+                p0: pos0,
+                p1: pos1,
+                w0: wVec0,
+                w1: wVec1,
+                n: nVec,
+                hw0: hw0,
+                hw1: hw1,
+                ht: ht,
+                owner: owner
+              });
+            }
+          }
+        });
+
+        // Surface sample atoms (outer/representative atoms per residue for fast translucent VDW envelope)
+        var surfaceAtoms = atoms.filter(function (at) {
+          return at.n === "CA" || at.n === "CB" || at.n === "O" || at.n === "CG" || at.n === "CZ" || at.n === "NZ" || at.n === "OH" || at.n === "OD1" || at.n === "OE1" || at.n === "SD";
+        });
+
+        molScene = {
+          cx: cx,
+          cy: cy,
+          cz: cz,
+          maxR: maxR,
+          peakDepth: peakDepth,
+          minB: typeof q.min_bfactor === "number" ? q.min_bfactor : 50,
+          maxB: typeof q.max_bfactor === "number" ? q.max_bfactor : 100,
+          chains: q.chains && q.chains.length ? q.chains : ["A"],
+          resMap: resMap,
+          resByNum: resByNum,
+          allResNums: allResNums,
+          ssCounts: ssCounts,
+          atoms: atoms,
+          surfaceAtoms: surfaceAtoms,
+          bonds: bonds,
+          ribbonSegments: ribbonSegments,
+          sidechainAtomNames: Object.keys(sidechainNameSet),
+          heteroSidechainNames: Object.keys(heteroSidechainSet)
+        };
+      }
+
+      function resolveResidueHex(chain, res, bFallback, ssFallback) {
+        if (!molScene) { rebuildMolecularScene(); }
+        var meta = molScene.resMap[(chain || "A") + ":" + res] || molScene.resByNum[res];
+        var scheme = state.colorScheme;
+
+        if (scheme === "ss") {
+          var ss = meta ? meta.ss : (ssFallback || "C");
+          if (ss === "H" || ss === "h") { return "#0D9488"; }
+          if (ss === "E" || ss === "s") { return "#4F46E5"; }
+          return "#D97706";
+        }
+        if (scheme === "bfactor") {
+          var b = meta ? meta.b : (typeof bFallback === "number" ? bFallback : 80);
+          var span = Math.max(2.0, molScene.maxB - molScene.minB);
+          var tb = (b - molScene.minB) / span;
+          return multiStopHex(BFACTOR_STOPS, tb);
+        }
+        if (scheme === "conservation") {
+          var df = meta ? meta.depthFrac : 0;
+          var lowCol = state.resolvedTheme === "dark" ? "#52545E" : "#A8A29E";
+          return multiStopHex([lowCol, "#4F46E5", "#0D9488", "#059669"], df);
+        }
+        if (scheme === "chain") {
+          var ch = meta ? meta.chain : (chain || "A");
+          var cIdx = Math.max(0, molScene.chains.indexOf(ch));
+          return CHAIN_PALETTE[cIdx % CHAIN_PALETTE.length];
+        }
+        var t = meta ? meta.seqFrac : 0;
+        return multiStopHex(SPECTRUM_STOPS, t);
+      }
+
+      function resolveAtomHex(chain, res, elem, atomName, bFallback, ssFallback) {
+        var base = resolveResidueHex(chain, res, bFallback, ssFallback);
+        var el = String(elem || atomName || "C").charAt(0).toUpperCase();
+        if (el === "C") { return base; }
+        var cpk = el === "N" ? "#4F46E5" : (el === "O" ? "#E11D48" : (el === "S" ? "#D97706" : "#059669"));
+        if (state.colorScheme === "chain") {
+          return cpk;
+        }
+        return lerpHex(base, cpk, 0.45);
+      }
+
+      function isResActive(res) {
+        if (!state.highlightRange) { return true; }
+        return res >= state.highlightRange.start && res <= state.highlightRange.end;
+      }
+
+      function updateViewerLegend() {
+        var el = document.getElementById("viewer-color-legend");
+        if (!el) { return; }
+        if (!molScene) { rebuildMolecularScene(); }
+        var scheme = state.colorScheme;
+        if (scheme === "ss") {
+          el.innerHTML =
+            '<span><span class="legend-swatch" style="background:#0D9488;"></span>Helix (' + molScene.ssCounts.H + ')</span>' +
+            '<span><span class="legend-swatch" style="background:#4F46E5;"></span>Sheet (' + molScene.ssCounts.E + ')</span>' +
+            '<span><span class="legend-swatch" style="background:#D97706;"></span>Coil (' + molScene.ssCounts.C + ')</span>';
+        } else if (scheme === "bfactor") {
+          el.innerHTML =
+            '<span>' + molScene.minB.toFixed(0) +
+            '<span class="legend-grad" style="background:linear-gradient(90deg,#D97706,#4F46E5,#0D9488,#059669);"></span>' +
+            molScene.maxB.toFixed(0) + ' pLDDT / B</span>';
+        } else if (scheme === "conservation") {
+          var lowHex = state.resolvedTheme === "dark" ? "#52545E" : "#A8A29E";
+          el.innerHTML =
+            '<span>0<span class="legend-grad" style="background:linear-gradient(90deg,' + lowHex + ',#4F46E5,#0D9488,#059669);"></span>' +
+            molScene.peakDepth + ' aligned hits</span>';
+        } else if (scheme === "chain") {
+          el.innerHTML =
+            '<span><span class="legend-swatch" style="background:#0D9488;"></span>Chain C</span>' +
+            '<span><span class="legend-swatch" style="background:#4F46E5;"></span>N</span>' +
+            '<span><span class="legend-swatch" style="background:#E11D48;"></span>O</span>' +
+            '<span><span class="legend-swatch" style="background:#D97706;"></span>S</span>';
+        } else {
+          el.innerHTML =
+            '<span>N-term<span class="legend-grad" style="background:linear-gradient(90deg,#0D9488,#4F46E5,#D97706,#E11D48);"></span>C-term</span>';
+        }
+      }
+
+      /* ---------------- WebGL (3Dmol.js) and Software 3D Renderers ---------------- */
+      function webglResidueColor(atom) {
+        var ssGuess = atom.ss === "h" ? "H" : (atom.ss === "s" ? "E" : "C");
+        return resolveResidueHex(atom.chain || "A", atom.resi, atom.b, ssGuess);
+      }
+
+      function webglAtomColor(atom) {
+        var ssGuess = atom.ss === "h" ? "H" : (atom.ss === "s" ? "E" : "C");
+        return resolveAtomHex(atom.chain || "A", atom.resi, atom.elem, atom.atom, atom.b, ssGuess);
+      }
+
+      function refresh3DStyle() {
+        if (!molScene) { rebuildMolecularScene(); }
+        updateViewerLegend();
+
+        if (state.useFallback3D) {
+          drawFallback3D();
+          return;
+        }
+        if (!state.viewer3D || !state.queryModel) {
+          return;
+        }
+
+        try { state.viewer3D.removeAllSurfaces(); } catch (_e) {}
+
+        var mutedHex = state.resolvedTheme === "dark" ? "#3A3D4A" : "#D6D3D1";
+        var activeResList = state.highlightRange
+          ? molScene.allResNums.filter(function (r) { return r >= state.highlightRange.start && r <= state.highlightRange.end; })
+          : molScene.allResNums;
+
+        if (state.highlightRange) {
+          state.queryModel.setStyle({}, {
+            cartoon: { color: mutedHex, opacity: 0.22, arrows: true, thickness: 0.24 }
+          });
+        } else {
+          state.queryModel.setStyle({}, {});
+        }
+
+        var modelAtoms = state.queryModel.selectedAtoms({});
+        var resByHex = {};
+        activeResList.forEach(function (r) {
+          var meta = molScene.resByNum[r];
+          var hex = resolveResidueHex(meta ? meta.chain : "A", r, meta ? meta.b : 80, meta ? meta.ss : "C");
+          if (!resByHex[hex]) { resByHex[hex] = []; }
+          resByHex[hex].push(r);
+        });
+
+        var allSerialsByHex = {};
+        var scSerialsByHex = {};
+        var hetScSerialsByHex = {};
+        var backboneIgnore = { N: true, C: true, O: true, OXT: true };
+
+        for (var idx = 0; idx < modelAtoms.length; idx++) {
+          var ma = modelAtoms[idx];
+          var rActive = isResActive(ma.resi);
+          var resHex = rActive ? webglResidueColor(ma) : mutedHex;
+          var atHex = rActive ? webglAtomColor(ma) : mutedHex;
+          if (window.$3Dmol && window.$3Dmol.CC) {
+            ma.color = window.$3Dmol.CC.color(resHex);
+          }
+          if (!rActive) { continue; }
+          if (!allSerialsByHex[atHex]) { allSerialsByHex[atHex] = []; }
+          allSerialsByHex[atHex].push(ma.serial);
+
+          var aName = String(ma.atom || "");
+          if (!backboneIgnore[aName]) {
+            if (!scSerialsByHex[atHex]) { scSerialsByHex[atHex] = []; }
+            scSerialsByHex[atHex].push(ma.serial);
+            if (aName !== "CA" && String(ma.elem || "C").toUpperCase() !== "C") {
+              if (!hetScSerialsByHex[atHex]) { hetScSerialsByHex[atHex] = []; }
+              hetScSerialsByHex[atHex].push(ma.serial);
+            }
+          }
+        }
+
+        if (state.repr === "stick") {
+          Object.keys(allSerialsByHex).forEach(function (hex) {
+            state.queryModel.setStyle(
+              { serial: allSerialsByHex[hex] },
+              { stick: { radius: 0.16, color: hex }, sphere: { scale: 0.26, color: hex } }
+            );
+          });
+        } else if (state.repr === "sphere") {
+          Object.keys(allSerialsByHex).forEach(function (hex) {
+            state.queryModel.setStyle(
+              { serial: allSerialsByHex[hex] },
+              { sphere: { scale: 0.86, color: hex } }
+            );
+          });
+        } else if (state.repr === "cartoon") {
+          Object.keys(resByHex).forEach(function (hex) {
+            state.queryModel.setStyle(
+              { resi: resByHex[hex] },
+              { cartoon: { color: hex, arrows: true, thickness: 0.34, opacity: 1.0 } }
+            );
+          });
+        } else {
+          // cartoon_sticks or surface (inner cartoon + covalent sidechain sticks)
+          Object.keys(resByHex).forEach(function (hex) {
+            state.queryModel.setStyle(
+              { resi: resByHex[hex] },
+              { cartoon: { color: hex, arrows: true, thickness: 0.34, opacity: 1.0 } }
+            );
+          });
+          var stickRad = state.repr === "surface" ? 0.11 : 0.14;
+          Object.keys(scSerialsByHex).forEach(function (hex) {
+            state.queryModel.addStyle(
+              { serial: scSerialsByHex[hex] },
+              { stick: { radius: stickRad, color: hex } }
+            );
+          });
+          if (state.repr === "cartoon_sticks") {
+            Object.keys(hetScSerialsByHex).forEach(function (hex) {
+              state.queryModel.addStyle(
+                { serial: hetScSerialsByHex[hex] },
+                { sphere: { scale: 0.20, color: hex } }
+              );
+            });
+          }
+        }
+
+        if (state.highlightRange && state.repr !== "sphere") {
+          state.queryModel.addStyle(
+            { resi: [state.highlightRange.start, state.highlightRange.end], atom: ["CA"] },
+            { sphere: { scale: 0.34, color: "#E11D48", opacity: 0.90 } }
+          );
+        }
+
+        if (state.repr === "surface") {
+          try {
+            if (window.$3Dmol && window.$3Dmol.CC) {
+              for (var sIdx = 0; sIdx < modelAtoms.length; sIdx++) {
+                var sa = modelAtoms[sIdx];
+                sa.color = window.$3Dmol.CC.color(isResActive(sa.resi) ? webglResidueColor(sa) : mutedHex);
+              }
+            }
+            var surfTarget = state.highlightRange
+              ? { model: state.queryModel, resi: activeResList }
+              : { model: state.queryModel };
+            var surfType = (window.$3Dmol.SurfaceType && window.$3Dmol.SurfaceType.SAS)
+              ? window.$3Dmol.SurfaceType.SAS
+              : window.$3Dmol.SurfaceType.VDW;
+            var surfPromise = state.viewer3D.addSurface(
+              surfType,
+              { opacity: 0.44 },
+              surfTarget,
+              { model: state.queryModel }
+            );
+            if (surfPromise && typeof surfPromise.then === "function") {
+              surfPromise.then(function () {
+                if (state.viewer3D && !state.useFallback3D) { state.viewer3D.render(); }
+              });
+            }
+          } catch (_e) {}
+        }
+
+        state.viewer3D.render();
+      }
+
+      function updateModeChipLabel() {
+        var modeLbl = document.getElementById("viewer-mode-label");
+        var fmt = (DASHBOARD_DATA.query_structure.viewer_format || "pdb").toUpperCase();
+        modeLbl.textContent = fmt + " | " + (state.useFallback3D ? "Software 3D" : "WebGL");
+      }
+
+      function set3DEngineMode(useSoftware3D) {
+        var container = document.getElementById("mol-viewer");
+        var fb = document.getElementById("software-viewport");
+        if (!state.hasWebGL3D) {
+          useSoftware3D = true;
+        }
+        state.useFallback3D = useSoftware3D;
+        if (useSoftware3D) {
+          if (state.viewer3D) {
+            try { state.viewer3D.spin(false); } catch (_e) {}
+          }
+          container.style.display = "none";
+          fb.style.display = "block";
+          updateModeChipLabel();
+          refresh3DStyle();
+        } else {
+          fb.style.display = "none";
+          container.style.display = "block";
+          updateModeChipLabel();
+          if (state.viewer3D) {
+            try { state.viewer3D.resize(); } catch (_e) {}
+            state.viewer3D.setBackgroundColor(state.resolvedTheme === "dark" ? "#16171D" : "#FFFFFF");
+            state.viewer3D.spin(state.spinning ? "y" : false);
+            refresh3DStyle();
+            state.viewer3D.zoomTo();
+            state.viewer3D.render();
+          }
+        }
+      }
+
+      function formatStatusReadout() {
+        if (state.hoverResidueText) {
+          return state.hoverResidueText;
+        }
+        if (state.highlightRange) {
+          return "Highlighted residues " + state.highlightRange.start + "-" + state.highlightRange.end +
+            (state.highlightRange.label ? " | Target: " + state.highlightRange.label : "");
+        }
+        return "Query: full chain (drag to orbit, drop .pdb/.cif to inspect)";
+      }
+
+      function attachQueryModelHover(model) {
+        if (!model || typeof model.setHoverable !== "function") { return; }
+        try {
+          model.setHoverable({}, true, function (atom) {
+            if (!atom) { return; }
+            var meta = molScene.resMap[(atom.chain || "A") + ":" + atom.resi] || molScene.resByNum[atom.resi];
+            var ssLabel = meta ? (meta.ss === "H" ? "Helix" : (meta.ss === "E" ? "Beta-Sheet" : "Coil")) : "Residue";
+            var depthCnt = meta ? meta.depth : 0;
+            state.hoverResidueText =
+              "Res " + atom.resi + " " + (atom.resn || "") + " (" + (atom.atom || "CA") + ", Chain " + (atom.chain || "A") + ") | " +
+              ssLabel + " | pLDDT/B " + Number(atom.b || 0).toFixed(1) + " | Depth " + depthCnt + " hits";
+            document.getElementById("viewer-selection-status").textContent = formatStatusReadout();
+          }, function () {
+            state.hoverResidueText = "";
+            document.getElementById("viewer-selection-status").textContent = formatStatusReadout();
+          });
+        } catch (_hovErr) {}
+      }
+
+      function reloadViewerModel() {
+        rebuildMolecularScene();
+        state.rotX = -0.42;
+        state.rotY = 0.58;
+        state.panX = 0;
+        state.panY = 0;
+        state.zoom3D = 1.05;
+        state.hoverResidueText = "";
+        document.getElementById("viewer-selection-status").textContent = formatStatusReadout();
+        document.getElementById("target-overlay-status").textContent = "";
+        document.getElementById("btn-load-target-3d").style.display = "none";
+
+        var q = DASHBOARD_DATA.query_structure;
+        if (state.viewer3D && state.hasWebGL3D) {
+          try {
+            if (typeof state.viewer3D.removeAllSurfaces === "function") {
+              state.viewer3D.removeAllSurfaces();
+            }
+          } catch (_e) {}
+          try {
+            if (typeof state.viewer3D.removeAllModels === "function") {
+              state.viewer3D.removeAllModels();
+            } else {
+              if (state.queryModel) { state.viewer3D.removeModel(state.queryModel); }
+              if (state.targetModel) { state.viewer3D.removeModel(state.targetModel); }
+            }
+          } catch (_e2) {}
+          state.targetModel = null;
+          state.queryModel = state.viewer3D.addModel(q.raw_coordinates, q.viewer_format || "pdb");
+          attachQueryModelHover(state.queryModel);
+          updateModeChipLabel();
+          if (!state.useFallback3D) {
+            refresh3DStyle();
+            state.viewer3D.zoomTo();
+            state.viewer3D.render();
+            return;
+          }
+        }
+        updateModeChipLabel();
+        refresh3DStyle();
+      }
+
+      function init3DViewer() {
+        rebuildMolecularScene();
+        var container = document.getElementById("mol-viewer");
+        var fb = document.getElementById("software-viewport");
+        var q = DASHBOARD_DATA.query_structure;
+
+        bindSoftwareViewport(fb);
+
+        var hasWebGL = false;
+        try {
+          var probe = document.createElement("canvas");
+          hasWebGL = !!(
+            window.WebGLRenderingContext &&
+            (probe.getContext("webgl") || probe.getContext("experimental-webgl"))
+          );
+        } catch (_e) {
+          hasWebGL = false;
+        }
+
+        if (typeof window.$3Dmol !== "undefined" && hasWebGL) {
+          try {
+            state.viewer3D = window.$3Dmol.createViewer(container, {
+              backgroundColor: state.resolvedTheme === "dark" ? "#16171D" : "#FFFFFF",
+              antialias: true
+            });
+            state.queryModel = state.viewer3D.addModel(q.raw_coordinates, q.viewer_format);
+            attachQueryModelHover(state.queryModel);
+
+            state.hasWebGL3D = true;
+            state.useFallback3D = false;
+            refresh3DStyle();
+            state.viewer3D.zoomTo();
+            state.viewer3D.render();
+            updateModeChipLabel();
+
+            if (typeof ResizeObserver !== "undefined") {
+              var ro = new ResizeObserver(function () {
+                if (!state.useFallback3D && state.viewer3D) {
+                  try { state.viewer3D.resize(); state.viewer3D.render(); } catch (_e) {}
+                } else if (state.useFallback3D) {
+                  drawFallback3D();
+                }
+              });
+              ro.observe(container.parentElement);
+            }
+            return;
+          } catch (_err) {
+            state.viewer3D = null;
+            state.hasWebGL3D = false;
+          }
+        }
+
+        state.hasWebGL3D = false;
+        set3DEngineMode(true);
+      }
+
+      /* ---------------- Software 3D Macromolecular Projection Engine ---------------- */
+      var lastProjectedResidues = [];
+
+      function bindSoftwareViewport(vp) {
+        var dragging = false;
+        var panning = false;
+        var lx = 0, ly = 0;
+
+        vp.addEventListener("mousedown", function (e) {
+          dragging = true;
+          panning = e.shiftKey || e.button === 2;
+          lx = e.clientX;
+          ly = e.clientY;
+        });
+        vp.addEventListener("contextmenu", function (e) { e.preventDefault(); });
+        window.addEventListener("mouseup", function () { dragging = false; panning = false; });
+        window.addEventListener("mousemove", function (e) {
+          if (!state.useFallback3D) { return; }
+          if (dragging) {
+            var dx = e.clientX - lx;
+            var dy = e.clientY - ly;
+            lx = e.clientX;
+            ly = e.clientY;
+            if (panning) {
+              state.panX += dx;
+              state.panY += dy;
+            } else {
+              state.rotY += dx * 0.011;
+              state.rotX = Math.max(-1.52, Math.min(1.52, state.rotX + dy * 0.011));
+            }
+            drawFallback3D();
+            return;
+          }
+        });
+
+        vp.addEventListener("mousemove", function (e) {
+          if (!state.useFallback3D || dragging || !lastProjectedResidues.length) { return; }
+          var rect = vp.getBoundingClientRect();
+          var mx = e.clientX - rect.left;
+          var my = e.clientY - rect.top;
+          var best = null;
+          var bestD2 = 196; // 14px hit radius
+          for (var i = 0; i < lastProjectedResidues.length; i++) {
+            var pr = lastProjectedResidues[i];
+            var ddx = pr.sx - mx, ddy = pr.sy - my;
+            var d2 = ddx * ddx + ddy * ddy;
+            if (d2 < bestD2 && (!best || pr.z > best.z)) {
+              bestD2 = d2;
+              best = pr;
+            }
+          }
+          var nextTxt = "";
+          if (best && best.meta) {
+            var m = best.meta;
+            var ssName = m.ss === "H" ? "Helix" : (m.ss === "E" ? "Beta-Sheet" : "Coil");
+            nextTxt = "Res " + m.res + " " + m.resn + " (Chain " + m.chain + ") | " +
+              ssName + " | pLDDT/B " + m.b.toFixed(1) + " | Depth " + m.depth + " hits";
+          }
+          if (nextTxt !== state.hoverResidueText) {
+            state.hoverResidueText = nextTxt;
+            document.getElementById("viewer-selection-status").textContent = formatStatusReadout();
+          }
+        });
+
+        vp.addEventListener("mouseleave", function () {
+          if (state.hoverResidueText) {
+            state.hoverResidueText = "";
+            document.getElementById("viewer-selection-status").textContent = formatStatusReadout();
+          }
+        });
+
+        vp.addEventListener("wheel", function (e) {
+          e.preventDefault();
+          state.zoom3D = Math.max(0.45, Math.min(3.0, state.zoom3D * (e.deltaY < 0 ? 1.08 : 0.92)));
+          drawFallback3D();
+        }, { passive: false });
+
+        window.addEventListener("resize", function () {
+          if (state.useFallback3D) { drawFallback3D(); }
+          else if (state.viewer3D) {
+            try { state.viewer3D.resize(); state.viewer3D.render(); } catch (_e) {}
+          }
+        });
+      }
+
+      function shadeLitRgba(baseHex, nx, ny, nz, zNorm, alpha, bgRgb) {
+        var c = hexToRgb(baseHex);
+        // Key light (-0.38, 0.54, 0.75) + Fill light (0.52, -0.32, 0.79) + Half-vector (-0.21, 0.30, 0.93)
+        var d1 = Math.max(0, nx * -0.38 + ny * 0.54 + nz * 0.75);
+        var d2 = Math.max(0, nx * 0.52 + ny * -0.32 + nz * 0.79);
+        var spec = Math.pow(Math.max(0, nx * -0.21 + ny * 0.30 + nz * 0.93), 24) * 0.40;
+        var diff = 0.38 + 0.54 * d1 + 0.14 * d2;
+
+        var lr = Math.min(255, c.r * diff + 255 * spec);
+        var lg = Math.min(255, c.g * diff + 255 * spec);
+        var lb = Math.min(255, c.b * diff + 255 * spec);
+
+        var fog = Math.max(0, Math.min(0.30, (0.32 - zNorm) * 0.22));
+        var fr = Math.round(lr * (1 - fog) + bgRgb.r * fog);
+        var fg = Math.round(lg * (1 - fog) + bgRgb.g * fog);
+        var fb = Math.round(lb * (1 - fog) + bgRgb.b * fog);
+
+        if (alpha >= 0.995) {
+          return "rgb(" + fr + "," + fg + "," + fb + ")";
+        }
+        return "rgba(" + fr + "," + fg + "," + fb + "," + alpha.toFixed(3) + ")";
+      }
+
+      function foggedRgb(baseHex, factor, zNorm, bgRgb) {
+        var c = hexToRgb(baseHex);
+        var r = Math.min(255, c.r * factor + (factor > 1 ? (factor - 1) * 180 : 0));
+        var g = Math.min(255, c.g * factor + (factor > 1 ? (factor - 1) * 180 : 0));
+        var b = Math.min(255, c.b * factor + (factor > 1 ? (factor - 1) * 180 : 0));
+        var fog = Math.max(0, Math.min(0.30, (0.32 - zNorm) * 0.22));
+        return "rgb(" +
+          Math.round(r * (1 - fog) + bgRgb.r * fog) + "," +
+          Math.round(g * (1 - fog) + bgRgb.g * fog) + "," +
+          Math.round(b * (1 - fog) + bgRgb.b * fog) + ")";
+      }
+
+      function drawLitSphere(ctx, sx, sy, rad, hex, zNorm, alpha, bgRgb, isDark) {
+        if (rad < 0.6) { return; }
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.beginPath();
+        ctx.arc(sx, sy, rad, 0, Math.PI * 2);
+        if (rad >= 2.2) {
+          var grad = ctx.createRadialGradient(
+            sx - rad * 0.32,
+            sy - rad * 0.34,
+            rad * 0.08,
+            sx,
+            sy,
+            rad
+          );
+          grad.addColorStop(0.0, foggedRgb(lerpHex(hex, "#FFFFFF", 0.62), 1.05, zNorm, bgRgb));
+          grad.addColorStop(0.46, foggedRgb(hex, 1.0, zNorm, bgRgb));
+          grad.addColorStop(1.0, foggedRgb(hex, 0.50, zNorm, bgRgb));
+          ctx.fillStyle = grad;
+        } else {
+          ctx.fillStyle = foggedRgb(hex, 1.0, zNorm, bgRgb);
+        }
+        ctx.fill();
+        if (rad >= 3.2) {
+          ctx.lineWidth = 0.65;
+          ctx.strokeStyle = isDark ? "rgba(0,0,0,0.42)" : "rgba(28,25,23,0.18)";
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+
+      function drawLitCylinder(ctx, x1, y1, x2, y2, radPx, hex, zNorm, alpha, bgRgb) {
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.lineCap = "round";
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.strokeStyle = foggedRgb(hex, 0.90, zNorm, bgRgb);
+        ctx.lineWidth = Math.max(1.1, radPx * 2.0);
+        ctx.stroke();
+
+        if (radPx >= 1.35) {
+          var dx = x2 - x1, dy = y2 - y1;
+          var len = Math.sqrt(dx * dx + dy * dy) || 1;
+          var ox = (-dy / len) * radPx * 0.26;
+          var oy = (dx / len) * radPx * 0.26;
+          if (ox + oy > 0) { ox = -ox; oy = -oy; }
+          ctx.beginPath();
+          ctx.moveTo(x1 + ox, y1 + oy);
+          ctx.lineTo(x2 + ox, y2 + oy);
+          ctx.strokeStyle = foggedRgb(lerpHex(hex, "#FFFFFF", 0.48), 1.06, zNorm, bgRgb);
+          ctx.lineWidth = Math.max(0.75, radPx * 0.62);
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+
+      function drawFallback3D() {
+        var vp = document.getElementById("software-viewport");
+        if (!vp) { return; }
+        if (!molScene) { rebuildMolecularScene(); }
+
+        var rect = vp.parentElement.getBoundingClientRect();
+        var w = Math.max(280, rect.width || 480);
+        var h = Math.max(240, rect.height || 420);
+        var dpr = window.devicePixelRatio || 1;
+        var targetW = Math.floor(w * dpr);
+        var targetH = Math.floor(h * dpr);
+        if (vp.width !== targetW || vp.height !== targetH) {
+          vp.width = targetW;
+          vp.height = targetH;
+        }
+
+        var ctx = vp.getContext("2d");
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+        var isDark = state.resolvedTheme === "dark";
+        var bgHex = isDark ? "#16171D" : "#FFFFFF";
+        var bgRgb = hexToRgb(bgHex);
+        var mutedHex = isDark ? "#3A3D4A" : "#D6D3D1";
+
+        ctx.fillStyle = bgHex;
+        ctx.fillRect(0, 0, w, h);
+
+        var maxR = Math.max(4.0, molScene.maxR);
+        var fov = maxR * 4.4;
+        var baseScale = (Math.min(w, h) * 0.40 * state.zoom3D) / maxR;
+        var centerX = w * 0.5 + state.panX;
+        var centerY = h * 0.5 + state.panY;
+
+        var cY = Math.cos(state.rotY), sY = Math.sin(state.rotY);
+        var cX = Math.cos(state.rotX), sX = Math.sin(state.rotX);
+
+        function rotVec(v) {
+          var x1 = v.x * cY + v.z * sY;
+          var z1 = -v.x * sY + v.z * cY;
+          var y2 = v.y * cX - z1 * sX;
+          var z2 = v.y * sX + z1 * cX;
+          return { x: x1, y: y2, z: z2 };
+        }
+
+        function projPt(v) {
+          var r = rotVec(v);
+          var persp = fov / Math.max(maxR * 1.1, fov - r.z);
+          var sc = baseScale * persp;
+          return {
+            sx: centerX + r.x * sc,
+            sy: centerY - r.y * sc,
+            z: r.z,
+            zNorm: r.z / maxR,
+            sc: sc
+          };
+        }
+
+        // Cache projected residue centers for fast mouse hover readout
+        lastProjectedResidues = [];
+        Object.keys(molScene.resMap).forEach(function (k) {
+          var m = molScene.resMap[k];
+          var pr = projPt(m);
+          lastProjectedResidues.push({ sx: pr.sx, sy: pr.sy, z: pr.z, meta: m });
+        });
+
+        var drawList = [];
+        var repr = state.repr;
+        var showRibbon = (repr === "cartoon" || repr === "cartoon_sticks" || repr === "surface");
+        var showSidechains = (repr === "cartoon_sticks" || repr === "surface");
+        var showAllSticks = (repr === "stick");
+        var showSpacefill = (repr === "sphere");
+        var showSurface = (repr === "surface");
+
+        // 1. 3D Secondary-Structure Ribbon & Cylindrical Coil Spline
+        if (showRibbon) {
+          for (var ri = 0; ri < molScene.ribbonSegments.length; ri++) {
+            var seg = molScene.ribbonSegments[ri];
+            var active = isResActive(seg.owner.res);
+            var segAlpha = active ? 1.0 : 0.18;
+            var segHex = active
+              ? resolveResidueHex(seg.owner.chain, seg.owner.res, seg.owner.b, seg.owner.ss)
+              : mutedHex;
+
+            if (seg.kind === "coil") {
+              var cp0 = projPt(seg.p0);
+              var cp1 = projPt(seg.p1);
+              drawList.push({
+                z: 0.5 * (cp0.z + cp1.z),
+                kind: "cyl",
+                x1: cp0.sx,
+                y1: cp0.sy,
+                x2: cp1.sx,
+                y2: cp1.sy,
+                rad: seg.hw0 * 0.5 * (cp0.sc + cp1.sc),
+                hex: segHex,
+                zNorm: 0.5 * (cp0.zNorm + cp1.zNorm),
+                alpha: segAlpha
+              });
+            } else {
+              // Emit 3D thick ribbon top face (+n*ht), bottom face (-n*ht), and side bevels
+              var nOff = vecScale(seg.n, seg.ht);
+              var w0a = vecScale(seg.w0, seg.hw0);
+              var w1a = vecScale(seg.w1, seg.hw1);
+
+              var tA = projPt(vecAdd(vecSub(seg.p0, w0a), nOff));
+              var tB = projPt(vecAdd(vecAdd(seg.p0, w0a), nOff));
+              var tC = projPt(vecAdd(vecAdd(seg.p1, w1a), nOff));
+              var tD = projPt(vecAdd(vecSub(seg.p1, w1a), nOff));
+
+              var bA = projPt(vecSub(vecSub(seg.p0, w0a), nOff));
+              var bB = projPt(vecSub(vecAdd(seg.p0, w0a), nOff));
+              var bC = projPt(vecSub(vecAdd(seg.p1, w1a), nOff));
+              var bD = projPt(vecSub(vecSub(seg.p1, w1a), nOff));
+
+              var rNorm = rotVec(seg.n);
+              var wNorm = rotVec(seg.w0);
+
+              var topZ = 0.25 * (tA.z + tB.z + tC.z + tD.z);
+              var botZ = 0.25 * (bA.z + bB.z + bC.z + bD.z);
+              var midZNorm = 0.5 * (topZ + botZ) / maxR;
+
+              drawList.push({
+                z: topZ,
+                kind: "quad",
+                pts: [tA, tB, tC, tD],
+                fill: shadeLitRgba(segHex, rNorm.x, rNorm.y, rNorm.z, midZNorm, segAlpha, bgRgb)
+              });
+              drawList.push({
+                z: botZ,
+                kind: "quad",
+                pts: [bD, bC, bB, bA],
+                fill: shadeLitRgba(segHex, -rNorm.x, -rNorm.y, -rNorm.z, midZNorm, segAlpha, bgRgb)
+              });
+              drawList.push({
+                z: 0.25 * (tB.z + tC.z + bC.z + bB.z),
+                kind: "quad",
+                pts: [tB, tC, bC, bB],
+                fill: shadeLitRgba(segHex, wNorm.x, wNorm.y, wNorm.z, midZNorm, segAlpha, bgRgb)
+              });
+              drawList.push({
+                z: 0.25 * (tD.z + tA.z + bA.z + bD.z),
+                kind: "quad",
+                pts: [tD, tA, bA, bD],
+                fill: shadeLitRgba(segHex, -wNorm.x, -wNorm.y, -wNorm.z, midZNorm, segAlpha, bgRgb)
+              });
+            }
+          }
+        }
+
+        // 2. Covalent Sidechain Sticks or Full All-Atom Ball & Stick
+        if (showSidechains || showAllSticks) {
+          var stickRadiusA = showAllSticks ? 0.17 : (repr === "surface" ? 0.11 : 0.14);
+          for (var bi = 0; bi < molScene.bonds.length; bi++) {
+            var bnd = molScene.bonds[bi];
+            if (!showAllSticks && bnd.isBackbone) { continue; }
+            var actA = isResActive(bnd.a.r);
+            var actB = isResActive(bnd.b.r);
+            if (!showAllSticks && state.highlightRange && !actA && !actB) { continue; }
+
+            var pa = projPt(bnd.a);
+            var pb = projPt(bnd.b);
+            var midPt = {
+              x: 0.5 * (bnd.a.x + bnd.b.x),
+              y: 0.5 * (bnd.a.y + bnd.b.y),
+              z: 0.5 * (bnd.a.z + bnd.b.z)
+            };
+            var pm = projPt(midPt);
+
+            var hexA = actA ? resolveAtomHex(bnd.a.c, bnd.a.r, bnd.a.e, bnd.a.n, bnd.a.b, bnd.a.ss) : mutedHex;
+            var hexB = actB ? resolveAtomHex(bnd.b.c, bnd.b.r, bnd.b.e, bnd.b.n, bnd.b.b, bnd.b.ss) : mutedHex;
+            var alphaA = actA ? 1.0 : 0.16;
+            var alphaB = actB ? 1.0 : 0.16;
+
+            drawList.push({
+              z: 0.5 * (pa.z + pm.z),
+              kind: "cyl",
+              x1: pa.sx, y1: pa.sy, x2: pm.sx, y2: pm.sy,
+              rad: stickRadiusA * 0.5 * (pa.sc + pm.sc),
+              hex: hexA,
+              zNorm: 0.5 * (pa.zNorm + pm.zNorm),
+              alpha: alphaA
+            });
+            drawList.push({
+              z: 0.5 * (pm.z + pb.z),
+              kind: "cyl",
+              x1: pm.sx, y1: pm.sy, x2: pb.sx, y2: pb.sy,
+              rad: stickRadiusA * 0.5 * (pm.sc + pb.sc),
+              hex: hexB,
+              zNorm: 0.5 * (pm.zNorm + pb.zNorm),
+              alpha: alphaB
+            });
+          }
+
+          // Atom joint / heteroatom spheres
+          for (var ai = 0; ai < molScene.atoms.length; ai++) {
+            var at = molScene.atoms[ai];
+            var atActive = isResActive(at.r);
+            if (!showAllSticks) {
+              if (at.n === "N" || at.n === "C" || at.n === "O" || at.n === "CA") { continue; }
+              if (state.highlightRange && !atActive) { continue; }
+              if (at.e === "C" && repr === "surface") { continue; }
+            }
+            var pat = projPt(at);
+            var sphRadA = showAllSticks
+              ? (at.e === "C" ? 0.36 : 0.42)
+              : (at.e === "C" ? 0.20 : 0.32);
+            var atHex = atActive ? resolveAtomHex(at.c, at.r, at.e, at.n, at.b, at.ss) : mutedHex;
+            drawList.push({
+              z: pat.z + 0.08,
+              kind: "sphere",
+              sx: pat.sx,
+              sy: pat.sy,
+              rad: sphRadA * pat.sc,
+              hex: atHex,
+              zNorm: pat.zNorm,
+              alpha: atActive ? 1.0 : 0.16
+            });
+          }
+        }
+
+        // 3. Full Spacefill (VDW) Atomic Spheres
+        if (showSpacefill) {
+          for (var si = 0; si < molScene.atoms.length; si++) {
+            var sat = molScene.atoms[si];
+            var sAct = isResActive(sat.r);
+            var ps = projPt(sat);
+            var sHex = sAct ? resolveAtomHex(sat.c, sat.r, sat.e, sat.n, sat.b, sat.ss) : mutedHex;
+            drawList.push({
+              z: ps.z,
+              kind: "sphere",
+              sx: ps.sx,
+              sy: ps.sy,
+              rad: sat.vdw * 0.90 * ps.sc,
+              hex: sHex,
+              zNorm: ps.zNorm,
+              alpha: sAct ? 1.0 : 0.14
+            });
+          }
+        }
+
+        // 4. Highlight boundary anchors on qStart / qEnd CA atoms
+        if (state.highlightRange && !showSpacefill) {
+          [state.highlightRange.start, state.highlightRange.end].forEach(function (anchorRes) {
+            var anchorMeta = molScene.resByNum[anchorRes];
+            if (!anchorMeta) { return; }
+            var pa = projPt(anchorMeta);
+            drawList.push({
+              z: pa.z + 0.25,
+              kind: "sphere",
+              sx: pa.sx,
+              sy: pa.sy,
+              rad: 0.56 * pa.sc,
+              hex: "#E11D48",
+              zNorm: pa.zNorm,
+              alpha: 0.94
+            });
+          });
+        }
+
+        // 5. Translucent Molecular VDW Envelope (Surface + Cartoon)
+        if (showSurface) {
+          for (var vi = 0; vi < molScene.surfaceAtoms.length; vi++) {
+            var vat = molScene.surfaceAtoms[vi];
+            if (state.highlightRange && !isResActive(vat.r)) { continue; }
+            var pv = projPt(vat);
+            var vHex = resolveResidueHex(vat.c, vat.r, vat.b, vat.ss);
+            drawList.push({
+              z: pv.z + 0.95,
+              kind: "surf",
+              sx: pv.sx,
+              sy: pv.sy,
+              rad: (vat.vdw + 1.25) * pv.sc,
+              hex: vHex,
+              zNorm: pv.zNorm
+            });
+          }
+        }
+
+        // Back-to-front depth sort (Painter's algorithm)
+        drawList.sort(function (a, b) { return a.z - b.z; });
+
+        for (var di = 0; di < drawList.length; di++) {
+          var item = drawList[di];
+          if (item.kind === "quad") {
+            ctx.beginPath();
+            ctx.moveTo(item.pts[0].sx, item.pts[0].sy);
+            ctx.lineTo(item.pts[1].sx, item.pts[1].sy);
+            ctx.lineTo(item.pts[2].sx, item.pts[2].sy);
+            ctx.lineTo(item.pts[3].sx, item.pts[3].sy);
+            ctx.closePath();
+            ctx.fillStyle = item.fill;
+            ctx.fill();
+            ctx.strokeStyle = item.fill;
+            ctx.lineWidth = 0.55;
+            ctx.stroke();
+          } else if (item.kind === "cyl") {
+            drawLitCylinder(ctx, item.x1, item.y1, item.x2, item.y2, item.rad, item.hex, item.zNorm, item.alpha, bgRgb);
+          } else if (item.kind === "sphere") {
+            drawLitSphere(ctx, item.sx, item.sy, item.rad, item.hex, item.zNorm, item.alpha, bgRgb, isDark);
+          } else if (item.kind === "surf") {
+            var srad = item.rad;
+            if (srad > 2) {
+              var sgrad = ctx.createRadialGradient(
+                item.sx - srad * 0.25,
+                item.sy - srad * 0.25,
+                srad * 0.1,
+                item.sx,
+                item.sy,
+                srad
+              );
+              var sc = hexToRgb(item.hex);
+              sgrad.addColorStop(0.0, "rgba(" + Math.min(255, sc.r + 55) + "," + Math.min(255, sc.g + 55) + "," + Math.min(255, sc.b + 55) + ",0.16)");
+              sgrad.addColorStop(0.70, "rgba(" + sc.r + "," + sc.g + "," + sc.b + ",0.13)");
+              sgrad.addColorStop(1.0, "rgba(" + sc.r + "," + sc.g + "," + sc.b + ",0.0)");
+              ctx.beginPath();
+              ctx.arc(item.sx, item.sy, srad, 0, Math.PI * 2);
+              ctx.fillStyle = sgrad;
+              ctx.fill();
+            }
+          }
+        }
+      }
+
+      window.highlightResidueRange = function (qStart, qEnd, targetLabel) {
+        var statusEl = document.getElementById("viewer-selection-status");
+        if (!qStart || !qEnd || qEnd < qStart) {
+          state.highlightRange = null;
+        } else {
+          state.highlightRange = { start: qStart, end: qEnd, label: targetLabel || "" };
+        }
+        statusEl.textContent = formatStatusReadout();
+
+        refresh3DStyle();
+        if (!state.useFallback3D && state.viewer3D && state.queryModel) {
+          if (state.highlightRange) {
+            state.viewer3D.zoomTo(
+              { model: state.queryModel, resi: state.highlightRange.start + "-" + state.highlightRange.end },
+              320
+            );
+          } else {
+            state.viewer3D.zoomTo({ model: state.queryModel }, 320);
+          }
+        }
+        renderDepthHistogram();
+      };
+
+      function selectHit(rank) {
+        var hit = DASHBOARD_DATA.hits.find(function (h) { return h.rank === rank; });
+        if (!hit) { return; }
+        state.selectedRank = hit.rank;
+        window.highlightResidueRange(hit.q_start, hit.q_end, hit.accession + " (" + hit.database + ")");
+
+        var btnLoad = document.getElementById("btn-load-target-3d");
+        if (hit.target_structure_url) {
+          btnLoad.style.display = "inline-flex";
+          btnLoad.setAttribute("data-url", hit.target_structure_url);
+          btnLoad.setAttribute("data-fmt", hit.target_structure_format || "cif");
+          btnLoad.setAttribute("data-acc", hit.accession);
+        } else {
+          btnLoad.style.display = "none";
+        }
+
+        var filtered = getFilteredHits();
+        renderAlignmentTracks(filtered);
+        renderScatterPlot();
+        renderTableRows(filtered);
+      }
+
+      /* ---------------- KPIs & Provenance ---------------- */
+      function renderHeaderAndKPIs() {
+        var q = DASHBOARD_DATA.query_structure;
+        var k = DASHBOARD_DATA.summary_kpis;
+        var sd = state.structDetails || computeStructureDetails(q);
+        state.structDetails = sd;
+
+        document.getElementById("hdr-filename").textContent = q.filename;
+        document.getElementById("hdr-timestamp").textContent = DASHBOARD_DATA.generated_at_utc;
+
+        document.getElementById("kpi-query-len").textContent = k.query_len + " aa";
+        document.getElementById("kpi-query-meta").textContent =
+          "Chain " + (q.chains.join(",") || "A") + " | " + q.atom_count + " atoms";
+
+        document.getElementById("kpi-bfactor").textContent = q.mean_bfactor.toFixed(2);
+        document.getElementById("kpi-bfactor-range").textContent =
+          q.min_bfactor.toFixed(1) + " - " + q.max_bfactor.toFixed(1) + " range";
+
+        var hasHits = !!(DASHBOARD_DATA.hits && DASHBOARD_DATA.hits.length > 0);
+        if (hasHits) {
+          document.getElementById("kpi-lbl-3").textContent = "Structural Hits";
+          document.getElementById("kpi-total-hits").textContent = String(k.total_hits);
+          document.getElementById("kpi-dbs-searched").textContent =
+            k.databases_searched.length + " DBs: " + (k.databases_searched.join(", ") || "none");
+
+          document.getElementById("kpi-lbl-4").innerHTML = "Validated Fold (Prob &ge; 0.90)";
+          document.getElementById("kpi-high-conf").textContent = String(k.high_confidence_hits);
+          document.getElementById("kpi-sub-4").textContent = "Global topology confidence";
+
+          document.getElementById("kpi-lbl-5").innerHTML = "Twilight Zone (&lt;30% Seq ID)";
+          document.getElementById("kpi-twilight").textContent = String(k.twilight_zone_hits);
+          document.getElementById("kpi-sub-5").textContent = "Prob >= 0.80 remote homologs";
+
+          document.getElementById("kpi-lbl-6").textContent = "Top Match (Rank 1)";
+          document.getElementById("kpi-best-acc").textContent = k.best_hit_accession;
+          document.getElementById("kpi-best-eval").textContent = "E = " + k.best_hit_evalue;
+        } else {
+          document.getElementById("kpi-lbl-3").textContent = "Radius of Gyration";
+          document.getElementById("kpi-total-hits").textContent = sd.rg.toFixed(2) + " A";
+          document.getElementById("kpi-dbs-searched").textContent = "Box " + sd.boxLabel;
+
+          document.getElementById("kpi-lbl-4").textContent = "Alpha-Helix Content";
+          document.getElementById("kpi-high-conf").textContent = sd.hPct.toFixed(1) + "%";
+          document.getElementById("kpi-sub-4").textContent = sd.hCount + " / " + sd.residueCount + " residues (H)";
+
+          document.getElementById("kpi-lbl-5").textContent = "Beta-Sheet Content";
+          document.getElementById("kpi-twilight").textContent = sd.ePct.toFixed(1) + "%";
+          document.getElementById("kpi-sub-5").textContent = sd.eCount + " / " + sd.residueCount + " residues (E)";
+
+          document.getElementById("kpi-lbl-6").textContent = "Bound Ligands / Cofactors";
+          document.getElementById("kpi-best-acc").textContent = sd.ligands.length ? String(sd.ligands.length) : "0 (Apo)";
+          document.getElementById("kpi-best-eval").textContent = sd.ligandSummary;
+        }
+
+        document.getElementById("lbl-qlen").textContent = String(k.query_len);
+
+        document.getElementById("ftr-citation").textContent = DASHBOARD_DATA.provenance.citation_text;
+        document.getElementById("ftr-foldseek-url").href = DASHBOARD_DATA.provenance.foldseek_url;
+        document.getElementById("ftr-github-url").href = DASHBOARD_DATA.provenance.github_url;
+        document.getElementById("ftr-disclaimer").textContent = DASHBOARD_DATA.provenance.disclaimer;
+      }
+
+      /* ---------------- Filter & Sort Engine ---------------- */
+      function getFilteredHits() {
+        var q = state.searchQuery.trim().toLowerCase();
+        var list = DASHBOARD_DATA.hits.filter(function (h) {
+          if (state.dbFilter !== "ALL" && h.database !== state.dbFilter) { return false; }
+          if (state.regimeFilter !== "ALL" && h.homology_regime !== state.regimeFilter) { return false; }
+          if (h.prob < state.minProb) { return false; }
+          if (h.q_cov_pct < state.minQCov) { return false; }
+          if (q) {
+            var hay = (h.target_id + " " + h.description + " " + h.organism + " " + h.database).toLowerCase();
+            if (hay.indexOf(q) === -1) { return false; }
+          }
+          return true;
+        });
+
+        var k = state.sortKey;
+        var dir = state.sortAsc ? 1 : -1;
+        list.sort(function (a, b) {
+          var va = a[k], vb = b[k];
+          if (typeof va === "string") { return va.localeCompare(vb) * dir; }
+          if (va < vb) { return -1 * dir; }
+          if (va > vb) { return 1 * dir; }
+          return a.rank - b.rank;
+        });
+        return list;
+      }
+
+      /* ---------------- 1D Residue Profile (Depth or B-Factor/pLDDT + SS) ---------------- */
+      function renderDepthHistogram() {
+        var svg = document.getElementById("depth-svg");
+        var q = DASHBOARD_DATA.query_structure || {};
+        var trace = q.ca_trace || [];
+        var prof = DASHBOARD_DATA.coverage_profile || [];
+        var useBFactor = (state.profileMetric === "bfactor") || (!DASHBOARD_DATA.hits || !DASHBOARD_DATA.hits.length);
+
+        var nPts = useBFactor ? trace.length : prof.length;
+        var captionEl = document.getElementById("lbl-profile-caption");
+        if (captionEl) {
+          captionEl.innerHTML = (useBFactor ? "B-Factor / pLDDT &amp; SS Ribbon" : "Residue Depth Profile") +
+            ' (1..<span id="lbl-qlen">' + nPts + "</span>)";
+        }
+
+        if (!nPts) {
+          svg.innerHTML = "";
+          document.getElementById("lbl-peak-depth").textContent = useBFactor ? "Mean: --" : "Peak: 0 hits";
+          return;
+        }
+
+        var W = 680, H = 88, padL = 32, padR = 10, padT = useBFactor ? 18 : 8, padB = 18;
+        var pW = W - padL - padR, pH = H - padT - padB;
+        var grid = state.resolvedTheme === "dark" ? "#292A30" : "#E7E5E4";
+        var txt = state.resolvedTheme === "dark" ? "#9A9895" : "#787774";
+
+        var out = [];
+        out.push('<line x1="' + padL + '" y1="' + (padT + pH) + '" x2="' + (W - padR) + '" y2="' + (padT + pH) + '" stroke="' + grid + '" stroke-width="1"/>');
+        out.push('<line x1="' + padL + '" y1="' + padT + '" x2="' + (W - padR) + '" y2="' + padT + '" stroke="' + grid + '" stroke-dasharray="2,3" stroke-width="1"/>');
+
+        if (state.highlightRange) {
+          var firstRes = trace.length ? trace[0].res : 1;
+          var lastRes = trace.length ? trace[trace.length - 1].res : nPts;
+          var spanRes = Math.max(1, lastRes - firstRes + 1);
+          var rx1 = padL + Math.max(0, Math.min(1, (state.highlightRange.start - firstRes) / spanRes)) * pW;
+          var rx2 = padL + Math.max(0, Math.min(1, (state.highlightRange.end - firstRes + 1) / spanRes)) * pW;
+          out.push('<rect x="' + rx1.toFixed(1) + '" y="2" width="' + Math.max(2, rx2 - rx1).toFixed(1) + '" height="' + (padT + pH - 2) + '" fill="rgba(225,29,72,0.14)"/>');
+        }
+
+        if (useBFactor) {
+          var minB = typeof q.min_bfactor === "number" ? q.min_bfactor : 0;
+          var maxB = typeof q.max_bfactor === "number" ? q.max_bfactor : 100;
+          var lo = Math.min(0, Math.floor(minB));
+          var hi = Math.max(100, Math.ceil(maxB));
+          if (hi <= lo) { hi = lo + 1; }
+          document.getElementById("lbl-peak-depth").textContent =
+            "Mean: " + (q.mean_bfactor || 0).toFixed(1) + " | H:#0D9488 E:#4F46E5";
+
+          // Secondary structure ribbon strip along y=4..12
+          out.push('<line x1="' + padL + '" y1="8" x2="' + (padL + pW) + '" y2="8" stroke="' + txt + '" stroke-opacity="0.45" stroke-width="1.5"/>');
+          var segW = Math.max(1.2, pW / nPts);
+          for (var si = 0; si < nPts; si++) {
+            var ss = trace[si].ss || "C";
+            if (ss === "H" || ss === "E") {
+              var sx = padL + (si / nPts) * pW;
+              var sCol = ss === "H" ? "#0D9488" : "#4F46E5";
+              out.push('<rect x="' + sx.toFixed(1) + '" y="4" width="' + (segW + 0.4).toFixed(1) + '" height="8" rx="1" fill="' + sCol + '"/>');
+            }
+          }
+
+          var bPath = "M " + padL + " " + (padT + pH);
+          for (var bi = 0; bi < nPts; bi++) {
+            var bx = padL + ((bi + 0.5) / nPts) * pW;
+            var bv = typeof trace[bi].b === "number" ? trace[bi].b : 0;
+            var by = padT + pH - ((bv - lo) / (hi - lo)) * pH;
+            bPath += " L " + bx.toFixed(1) + " " + by.toFixed(1);
+          }
+          bPath += " L " + (padL + pW) + " " + (padT + pH) + " Z";
+          out.push('<path d="' + bPath + '" fill="rgba(79,70,229,0.16)" stroke="#4F46E5" stroke-width="1.5"/>');
+          out.push('<text x="' + (padL - 5) + '" y="' + (padT + 8) + '" text-anchor="end" font-size="10" font-family="DejaVu Sans Mono, monospace" fill="' + txt + '">' + hi + '</text>');
+          out.push('<text x="' + (padL - 5) + '" y="' + (padT + pH) + '" text-anchor="end" font-size="10" font-family="DejaVu Sans Mono, monospace" fill="' + txt + '">' + lo + '</text>');
+        } else {
+          var peak = Math.max.apply(null, prof.concat([0]));
+          var denom = Math.max(peak, 1);
+          document.getElementById("lbl-peak-depth").textContent = "Peak: " + peak + " hits";
+
+          var path = "M " + padL + " " + (padT + pH);
+          for (var i = 0; i < nPts; i++) {
+            var px = padL + ((i + 0.5) / nPts) * pW;
+            var py = padT + pH - (prof[i] / denom) * pH;
+            path += " L " + px.toFixed(1) + " " + py.toFixed(1);
+          }
+          path += " L " + (padL + pW) + " " + (padT + pH) + " Z";
+          out.push('<path d="' + path + '" fill="rgba(13,148,136,0.20)" stroke="#0D9488" stroke-width="1.5"/>');
+          out.push('<text x="' + (padL - 5) + '" y="' + (padT + 8) + '" text-anchor="end" font-size="10" font-family="DejaVu Sans Mono, monospace" fill="' + txt + '">' + peak + '</text>');
+          out.push('<text x="' + (padL - 5) + '" y="' + (padT + pH) + '" text-anchor="end" font-size="10" font-family="DejaVu Sans Mono, monospace" fill="' + txt + '">0</text>');
+        }
+
+        var startLbl = trace.length ? trace[0].res : 1;
+        var midLbl = trace.length ? trace[Math.floor(trace.length * 0.5)].res : Math.round(nPts * 0.5);
+        var endLbl = trace.length ? trace[trace.length - 1].res : nPts;
+        out.push('<text x="' + padL + '" y="' + (H - 3) + '" text-anchor="start" font-size="10" font-family="DejaVu Sans Mono, monospace" fill="' + txt + '">' + startLbl + '</text>');
+        out.push('<text x="' + (padL + pW * 0.5) + '" y="' + (H - 3) + '" text-anchor="middle" font-size="10" font-family="DejaVu Sans Mono, monospace" fill="' + txt + '">' + midLbl + '</text>');
+        out.push('<text x="' + (padL + pW) + '" y="' + (H - 3) + '" text-anchor="end" font-size="10" font-family="DejaVu Sans Mono, monospace" fill="' + txt + '">' + endLbl + '</text>');
+
+        svg.innerHTML = out.join("");
+      }
+
+      function probThresholdColor(p) {
+        if (p >= 0.90) { return "#059669"; }
+        if (p >= 0.80) { return "#0D9488"; }
+        if (p >= 0.50) { return "#D97706"; }
+        return "#E11D48";
+      }
+
+      function renderAlignmentTracks(filteredHits) {
+        var box = document.getElementById("tracks-container");
+        var qLen = Math.max(1, DASHBOARD_DATA.summary_kpis.query_len || 1);
+        var subset = filteredHits.slice(0, 80);
+        document.getElementById("lbl-track-count").textContent = subset.length + " shown";
+
+        if (!subset.length) {
+          box.innerHTML = '<div style="padding:14px 4px; color:var(--text-secondary);">No matching intervals.</div>';
+          return;
+        }
+
+        box.innerHTML = subset.map(function (h) {
+          var startPct = Math.max(0, Math.min(100, ((Math.max(1, h.q_start) - 1) / qLen) * 100));
+          var spanPct = Math.max(1.5, Math.min(100 - startPct, ((Math.max(h.q_start, h.q_end) - Math.max(1, h.q_start) + 1) / qLen) * 100));
+          var col = state.trackColorBy === "prob"
+            ? probThresholdColor(h.prob)
+            : (REGIME_COLOR[h.homology_regime] || "#0D9488");
+          var cls = state.selectedRank === h.rank ? "track-line selected" : "track-line";
+          return (
+            '<div class="' + cls + '" data-rank="' + h.rank + '">' +
+              '<span class="track-rk">' + h.rank + '</span>' +
+              '<span class="track-id" title="' + esc(h.target_id) + '">' + esc(h.accession) + '</span>' +
+              '<div class="track-axis">' +
+                '<div class="track-segment" style="left:' + startPct.toFixed(2) + '%; width:' + spanPct.toFixed(2) + '%; background:' + col + ';"></div>' +
+              '</div>' +
+              '<span class="track-coords">' + h.q_start + '-' + h.q_end + '</span>' +
+            '</div>'
+          );
+        }).join("");
+
+        Array.prototype.forEach.call(box.querySelectorAll(".track-line"), function (el) {
+          var rk = parseInt(el.getAttribute("data-rank"), 10);
+          var hit = DASHBOARD_DATA.hits.find(function (item) { return item.rank === rk; });
+          el.addEventListener("click", function () { selectHit(rk); });
+          el.addEventListener("mousemove", function (evt) {
+            if (!hit) { return; }
+            showTooltip(
+              evt,
+              '<div class="mono"><strong>#' + hit.rank + " " + esc(hit.accession) + "</strong> [" + esc(hit.database) + "]</div>" +
+              "<div>" + esc(hit.description) + "</div>" +
+              '<div class="mono" style="margin-top:3px; color:var(--text-secondary);">Q:' + hit.q_start + "-" + hit.q_end +
+              " (" + hit.q_cov_display + ") | P:" + hit.prob_display + " | ID:" + hit.seq_identity_display + "</div>"
+            );
+          });
+          el.addEventListener("mouseleave", hideTooltip);
+        });
+      }
+
+      /* ---------------- Scatter Plot ---------------- */
+      function renderScatterPlot() {
+        var svg = document.getElementById("scatter-svg");
+        var hits = getFilteredHits();
+        var W = 700, H = 260, padL = 46, padR = 16, padT = 14, padB = 34;
+        var pW = W - padL - padR, pH = H - padT - padB;
+        var grid = state.resolvedTheme === "dark" ? "#292A30" : "#E7E5E4";
+        var txt = state.resolvedTheme === "dark" ? "#9A9895" : "#787774";
+
+        var yKey = state.scatterY;
+        var maxY = yKey === "prob"
+          ? 1.0
+          : Math.max(5.0, Math.ceil(Math.max.apply(null, hits.map(function (h) { return h.neg_log10_evalue; }).concat([5])) * 1.08));
+
+        var out = [];
+
+        // Axis gridlines
+        [0, 20, 30, 50, 75, 100].forEach(function (xv) {
+          var sx = padL + (xv / 100) * pW;
+          var isTwilightLine = (xv === 30);
+          out.push(
+            '<line x1="' + sx.toFixed(1) + '" y1="' + padT + '" x2="' + sx.toFixed(1) + '" y2="' + (padT + pH) +
+            '" stroke="' + (isTwilightLine ? "#4F46E5" : grid) + '"' +
+            (isTwilightLine ? ' stroke-dasharray="3,3" stroke-opacity="0.7"' : '') + ' stroke-width="1"/>'
+          );
+          out.push('<text x="' + sx.toFixed(1) + '" y="' + (padT + pH + 14) + '" text-anchor="middle" font-size="10" font-family="DejaVu Sans Mono, monospace" fill="' + (isTwilightLine ? "#4F46E5" : txt) + '">' + xv + '%</text>');
+        });
+
+        for (var s = 0; s <= 4; s++) {
+          var ratio = s / 4;
+          var sy = padT + pH - ratio * pH;
+          var lbl = (ratio * maxY).toFixed(yKey === "prob" ? 2 : 1);
+          out.push('<line x1="' + padL + '" y1="' + sy.toFixed(1) + '" x2="' + (padL + pW) + '" y2="' + sy.toFixed(1) + '" stroke="' + grid + '" stroke-width="1"/>');
+          out.push('<text x="' + (padL - 6) + '" y="' + (sy + 3).toFixed(1) + '" text-anchor="end" font-size="10" font-family="DejaVu Sans Mono, monospace" fill="' + txt + '">' + lbl + '</text>');
+        }
+
+        out.push('<text x="' + (padL + 6) + '" y="' + (padT + 12) + '" font-size="10" font-family="DejaVu Sans Mono, monospace" fill="#4F46E5">&lt;30% Seq ID Twilight Threshold</text>');
+        out.push('<text x="' + (padL + pW / 2) + '" y="' + (H - 4) + '" text-anchor="middle" font-size="11" fill="' + txt + '">Sequence Identity (%)</text>');
+        var yLabel = yKey === "prob" ? "Probability" : "-log10(E-value)";
+        out.push('<text transform="translate(12,' + (padT + pH / 2) + ') rotate(-90)" text-anchor="middle" font-size="11" fill="' + txt + '">' + yLabel + '</text>');
+
+        hits.forEach(function (h) {
+          var cx = padL + (Math.min(100, Math.max(0, h.seq_identity_pct)) / 100) * pW;
+          var yVal = yKey === "prob" ? h.prob : h.neg_log10_evalue;
+          var cy = padT + pH - (Math.min(maxY, Math.max(0, yVal)) / maxY) * pH;
+          var r = Math.max(4.0, Math.min(10.0, 2.8 + Math.sqrt(h.aln_len || 1) * 0.62));
+          var fill = REGIME_COLOR[h.homology_regime] || "#0D9488";
+          var sel = state.selectedRank === h.rank;
+          var stroke = sel ? (state.resolvedTheme === "dark" ? "#ECE8E2" : "#1C1917") : fill;
+          out.push(
+            '<circle class="scatter-node" data-rank="' + h.rank + '" cx="' + cx.toFixed(1) + '" cy="' + cy.toFixed(1) +
+            '" r="' + r.toFixed(1) + '" fill="' + fill + '" fill-opacity="0.80" stroke="' + stroke + '" stroke-width="' + (sel ? 2.2 : 1.0) + '" style="cursor:pointer;"/>'
+          );
+        });
+
+        svg.innerHTML = out.join("");
+
+        Array.prototype.forEach.call(svg.querySelectorAll(".scatter-node"), function (node) {
+          var rk = parseInt(node.getAttribute("data-rank"), 10);
+          var hit = DASHBOARD_DATA.hits.find(function (item) { return item.rank === rk; });
+          node.addEventListener("click", function () { selectHit(rk); });
+          node.addEventListener("mousemove", function (evt) {
+            if (!hit) { return; }
+            showTooltip(
+              evt,
+              '<div class="mono"><strong>#' + hit.rank + " " + esc(hit.accession) + "</strong></div>" +
+              "<div>" + esc(hit.description) + "</div>" +
+              '<div class="mono" style="margin-top:3px; color:var(--text-secondary);">Prob ' + hit.prob_display +
+              " | E " + hit.evalue_display + " | Seq ID " + hit.seq_identity_display + " | Len " + hit.aln_len + "</div>"
+            );
+          });
+          node.addEventListener("mouseleave", hideTooltip);
+        });
+      }
+
+      /* ---------------- Monospaced Distribution Tables ---------------- */
+      function renderDistributions() {
+        var totalHits = Math.max(1, DASHBOARD_DATA.hits.length);
+        var dbBody = document.getElementById("db-dist-tbody");
+        var dbs = DASHBOARD_DATA.database_breakdown || [];
+
+        dbBody.innerHTML = dbs.map(function (d) {
+          var pct = (d.count / totalHits) * 100;
+          var activeCls = state.dbFilter === d.database ? ' class="active-filter"' : '';
+          return (
+            '<tr' + activeCls + ' data-db="' + esc(d.database) + '">' +
+              '<td>' + esc(d.database) + '</td>' +
+              '<td class="num">' + d.count + '</td>' +
+              '<td class="num">' + d.mean_prob.toFixed(3) + '</td>' +
+              '<td class="num"><div class="inline-bar-wrap"><div class="inline-bar-fill" style="width:' + pct.toFixed(1) + '%; background:#0D9488;"></div></div></td>' +
+            '</tr>'
+          );
+        }).join("") || '<tr><td colspan="4" style="color:var(--text-secondary);">No records</td></tr>';
+
+        Array.prototype.forEach.call(dbBody.querySelectorAll("tr[data-db]"), function (tr) {
+          tr.addEventListener("click", function () {
+            var db = tr.getAttribute("data-db");
+            state.dbFilter = (state.dbFilter === db) ? "ALL" : db;
+            document.getElementById("filter-database").value = state.dbFilter;
+            refreshAll();
+          });
+        });
+
+        var clBody = document.getElementById("cluster-dist-tbody");
+        var clusters = (DASHBOARD_DATA.functional_clusters || []).slice(0, 6);
+        clBody.innerHTML = clusters.map(function (c) {
+          var pct = (c.count / totalHits) * 100;
+          return (
+            '<tr data-cluster="' + esc(c.label) + '">' +
+              '<td>' + esc(c.label) + '</td>' +
+              '<td class="num">' + c.count + '</td>' +
+              '<td class="num">' + c.mean_prob.toFixed(3) + '</td>' +
+              '<td class="num"><div class="inline-bar-wrap"><div class="inline-bar-fill" style="width:' + pct.toFixed(1) + '%; background:#4F46E5;"></div></div></td>' +
+            '</tr>'
+          );
+        }).join("") || '<tr><td colspan="4" style="color:var(--text-secondary);">No clusters</td></tr>';
+
+        Array.prototype.forEach.call(clBody.querySelectorAll("tr[data-cluster]"), function (tr) {
+          tr.addEventListener("click", function () {
+            var lbl = tr.getAttribute("data-cluster");
+            if (lbl === "Other / Divergent Annotations") { return; }
+            var token = lbl.split(" ")[0];
+            state.searchQuery = (state.searchQuery.toLowerCase() === token.toLowerCase()) ? "" : token;
+            document.getElementById("filter-search").value = state.searchQuery;
+            refreshAll();
+          });
+        });
+      }
+
+      /* ---------------- Alignment Records Table & Exports ---------------- */
+      function formatSpan(s, e) {
+        if (!s && !e) { return "--"; }
+        return s + "-" + e;
+      }
+
+      function probValueClass(p) {
+        if (p < 0.50) { return "val-critical"; }
+        if (p >= 0.90) { return "val-validated"; }
+        return "val-nominal";
+      }
+
+      function renderTableRows(filteredHits) {
+        var tbody = document.getElementById("hits-tbody");
+        document.getElementById("table-count-label").textContent =
+          filteredHits.length + " / " + DASHBOARD_DATA.hits.length + " records";
+
+        if (!filteredHits.length) {
+          tbody.innerHTML = '<tr><td colspan="13" style="text-align:center; padding:20px; color:var(--text-secondary);">No structural alignments match current filters.</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = filteredHits.map(function (h) {
+          var rowCls = state.selectedRank === h.rank ? ' class="selected"' : '';
+          var dotCol = REGIME_COLOR[h.homology_regime] || "#0D9488";
+          var shortRegime = REGIME_SHORT[h.homology_regime] || h.homology_regime;
+          var scoreStr = (typeof h.score === "number") ? Math.round(h.score).toString() : "--";
+          return (
+            '<tr' + rowCls + ' data-rank="' + h.rank + '">' +
+              '<td class="num">' + h.rank + '</td>' +
+              '<td>' + esc(h.accession) + '</td>' +
+              '<td class="annot-col" title="' + esc(h.description) + '">' + esc(h.description) + '</td>' +
+              '<td>' + esc(h.database) + '</td>' +
+              '<td class="num">' + formatSpan(h.q_start, h.q_end) + '</td>' +
+              '<td class="num">' + formatSpan(h.t_start, h.t_end) + '</td>' +
+              '<td class="num">' +
+                '<span class="cov-inline">' +
+                  '<span class="cov-mini-track"><span class="cov-mini-fill" style="display:block; width:' + h.q_cov_pct.toFixed(1) + '%;"></span></span>' +
+                  '<span>' + esc(h.q_cov_display) + '</span>' +
+                '</span>' +
+              '</td>' +
+              '<td class="num ' + probValueClass(h.prob) + '">' + esc(h.prob_display) + '</td>' +
+              '<td class="num">' + esc(h.evalue_display) + '</td>' +
+              '<td class="num">' + esc(h.seq_identity_display) + '</td>' +
+              '<td class="num">' + h.aln_len + '</td>' +
+              '<td class="num">' + scoreStr + '</td>' +
+              '<td><span class="regime-indicator"><span class="regime-dot" style="background:' + dotCol + ';"></span>' + esc(shortRegime) + '</span></td>' +
+            '</tr>'
+          );
+        }).join("");
+
+        Array.prototype.forEach.call(tbody.querySelectorAll("tr[data-rank]"), function (tr) {
+          tr.addEventListener("click", function () {
+            selectHit(parseInt(tr.getAttribute("data-rank"), 10));
+          });
+        });
+      }
+
+      function populateDbSelect() {
+        var sel = document.getElementById("filter-database");
+        var dbs = DASHBOARD_DATA.summary_kpis.databases_searched || [];
+        sel.innerHTML = '<option value="ALL">All</option>' +
+          dbs.map(function (db) { return '<option value="' + esc(db) + '">' + esc(db) + '</option>'; }).join("");
+      }
+
+      function downloadFile(name, text, mime) {
+        var blob = new Blob([text], { type: mime });
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement("a");
+        a.href = url;
+        a.download = name;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
+
+      function exportCSV() {
+        var rows = getFilteredHits();
+        var cols = ["Rank", "Accession", "Description", "Database", "qStart", "qEnd", "tStart", "tEnd", "QCov", "Prob", "Evalue", "SeqIdentityPct", "AlnLength", "Score", "Regime"];
+        var lines = [cols.join(",")];
+        rows.forEach(function (h) {
+          lines.push([
+            h.rank,
+            '"' + String(h.accession).replace(/"/g, '""') + '"',
+            '"' + String(h.description).replace(/"/g, '""') + '"',
+            '"' + String(h.database).replace(/"/g, '""') + '"',
+            h.q_start,
+            h.q_end,
+            h.t_start,
+            h.t_end,
+            h.q_cov_display,
+            h.prob_display,
+            h.evalue_display,
+            h.seq_identity_pct,
+            h.aln_len,
+            h.score,
+            '"' + String(h.homology_regime).replace(/"/g, '""') + '"'
+          ].join(","));
+        });
+        downloadFile("foldseek_alignments.csv", lines.join("\n") + "\n", "text/csv;charset=utf-8");
+      }
+
+      function exportMarkdown() {
+        var rows = getFilteredHits();
+        var lines = [
+          "### All Structural Matches",
+          "| Target ID | Q-Cov | Prob | E-value | Seq Identity | Aln Length |",
+          "|---|---|---|---|---|---|"
+        ];
+        rows.forEach(function (h) {
+          lines.push(
+            "| " + h.target_id.replace(/\|/g, "\\|") +
+            " | " + h.q_cov_display +
+            " | " + h.prob_display +
+            " | " + h.evalue_display +
+            " | " + h.seq_identity_display +
+            " | " + h.aln_len + " |"
+          );
+        });
+        downloadFile("foldseek_alignments.md", lines.join("\n") + "\n", "text/markdown;charset=utf-8");
+      }
+
+      /* ---------------- On-Demand PDB / mmCIF Parser & Structure Details Engine ---------------- */
+      var AA3_TO_1 = {
+        ALA: "A", ARG: "R", ASN: "N", ASP: "D", CYS: "C",
+        GLN: "Q", GLU: "E", GLY: "G", HIS: "H", ILE: "I",
+        LEU: "L", LYS: "K", MET: "M", PHE: "F", PRO: "P",
+        SER: "S", THR: "T", TRP: "W", TYR: "Y", VAL: "V",
+        MSE: "M", SEC: "U", PYL: "O", HSD: "H", HSE: "H", HSP: "H", CYX: "C"
+      };
+      var HYDROPHOBIC_AA = { A: 1, V: 1, I: 1, L: 1, M: 1, F: 1, W: 1, P: 1 };
+      var POLAR_AA = { S: 1, T: 1, N: 1, Q: 1, Y: 1, C: 1, G: 1, U: 1 };
+      var CHARGED_AA = { K: 1, R: 1, H: 1, D: 1, E: 1, O: 1 };
+      var WATER_RESN = { HOH: 1, WAT: 1, H2O: 1, DOD: 1, SOL: 1 };
+      var CLIENT_MAX_HEAVY_ATOMS = 8000;
+
+      function setLoadStatus(msg, isError) {
+        var el = document.getElementById("hdr-load-status");
+        if (!el) { return; }
+        el.textContent = msg || "";
+        el.classList.toggle("is-error", !!isError);
+      }
+
+      function inferCaSecondaryStructure(caTrace) {
+        var n = caTrace.length;
+        var out = [];
+        for (var k = 0; k < n; k++) { out.push("C"); }
+        if (n < 4) { return out; }
+
+        function caDist(i, j) {
+          var a = caTrace[i], b = caTrace[j];
+          if (a.chain !== b.chain) { return 999.0; }
+          var dx = a.x - b.x, dy = a.y - b.y, dz = a.z - b.z;
+          return Math.sqrt(dx * dx + dy * dy + dz * dz);
+        }
+
+        for (var i = 0; i < n - 3; i++) {
+          if (caTrace[i].chain !== caTrace[i + 3].chain) { continue; }
+          var d13 = caDist(i, i + 2);
+          var d14 = caDist(i, i + 3);
+          if (d14 >= 4.7 && d14 <= 6.2 && d13 >= 5.0 && d13 <= 6.0) {
+            for (var h = i; h < Math.min(n, i + 4); h++) { out[h] = "H"; }
+            continue;
+          }
+          if (d13 >= 6.1 && d13 <= 7.4 && d14 >= 9.0 && d14 <= 11.4) {
+            for (var e = i; e < Math.min(n, i + 3); e++) {
+              if (out[e] === "C") { out[e] = "E"; }
+            }
+          }
+        }
+        for (var m = 1; m < n - 1; m++) {
+          if (out[m] !== "C" && out[m - 1] === "C" && out[m + 1] === "C") {
+            out[m] = "C";
+          }
+        }
+        return out;
+      }
+
+      function tokenizeCifLine(line) {
+        var tokens = [];
+        var re = /'([^']*)'|"([^"]*)"|(\S+)/g;
+        var m;
+        while ((m = re.exec(line)) !== null) {
+          tokens.push(m[1] !== undefined ? m[1] : (m[2] !== undefined ? m[2] : m[3]));
+        }
+        return tokens;
+      }
+
+      function parsePdbClientSide(filename, rawText) {
+        var lines = String(rawText || "").split(/\r?\n/);
+        var headerClass = "";
+        var pdbId = "";
+        var titleParts = [];
+        var molParts = [];
+        var method = "";
+        var resolution = "";
+        var ssMap = {};
+        var caByRes = {};
+        var oByRes = {};
+        var fallbackByRes = {};
+        var residueOrder = [];
+        var seenRes = {};
+        var chainsSeen = {};
+        var chainList = [];
+        var heavyAtoms = [];
+        var totalAtomCount = 0;
+        var ligandsByKey = {};
+        var ligandList = [];
+        var inFirstModel = true;
+        var sawModel = false;
+
+        for (var idx = 0; idx < lines.length; idx++) {
+          var line = lines[idx];
+          if (!line) { continue; }
+          var rec6 = line.slice(0, 6);
+
+          if (rec6 === "HEADER") {
+            headerClass = line.slice(10, 50).trim();
+            pdbId = line.slice(62, 66).trim();
+            continue;
+          }
+          if (rec6 === "TITLE ") {
+            var tChunk = line.slice(10, 80).trim();
+            if (tChunk) { titleParts.push(tChunk); }
+            continue;
+          }
+          if (rec6 === "COMPND") {
+            var cChunk = line.slice(10, 80).trim();
+            var molMatch = /MOLECULE:\s*([^;]+)/i.exec(cChunk);
+            if (molMatch) { molParts.push(molMatch[1].trim()); }
+            continue;
+          }
+          if (rec6 === "EXPDTA") {
+            var eChunk = line.slice(10, 79).trim();
+            if (eChunk) { method = method ? (method + " " + eChunk) : eChunk; }
+            continue;
+          }
+          if (rec6 === "REMARK" && line.slice(7, 10) === "  2") {
+            var resMatch = /RESOLUTION\.\s+([0-9.]+)\s+ANGSTROM/i.exec(line);
+            if (resMatch) { resolution = resMatch[1] + " A"; }
+            continue;
+          }
+          if (rec6 === "HELIX " && line.length >= 37) {
+            var hChain = (line.slice(19, 20).trim() || "A");
+            var hStart = parseInt(line.slice(21, 25).trim(), 10);
+            var hEnd = parseInt(line.slice(33, 37).trim(), 10);
+            if (!isNaN(hStart) && !isNaN(hEnd) && hEnd >= hStart) {
+              for (var hr = hStart; hr <= hEnd; hr++) { ssMap[hChain + ":" + hr] = "H"; }
+            }
+            continue;
+          }
+          if (rec6 === "SHEET " && line.length >= 37) {
+            var sChain = (line.slice(21, 22).trim() || "A");
+            var sStart = parseInt(line.slice(22, 26).trim(), 10);
+            var sEnd = parseInt(line.slice(33, 37).trim(), 10);
+            if (!isNaN(sStart) && !isNaN(sEnd) && sEnd >= sStart) {
+              for (var sr = sStart; sr <= sEnd; sr++) {
+                if (!ssMap[sChain + ":" + sr]) { ssMap[sChain + ":" + sr] = "E"; }
+              }
+            }
+            continue;
+          }
+          if (rec6 === "MODEL ") {
+            if (sawModel) { inFirstModel = false; }
+            sawModel = true;
+            continue;
+          }
+          if (rec6 === "ENDMDL" && sawModel) {
+            inFirstModel = false;
+            continue;
+          }
+          if (!inFirstModel) { continue; }
+
+          if (rec6 === "HETATM" && line.length >= 54) {
+            var hetResn = line.slice(17, 20).trim().toUpperCase();
+            if (!WATER_RESN[hetResn]) {
+              var hetChain = line.slice(21, 22).trim() || "A";
+              var hetResi = parseInt(line.slice(22, 26).trim(), 10);
+              if (!isNaN(hetResi)) {
+                var lKey = hetChain + ":" + hetResi + ":" + hetResn;
+                if (!ligandsByKey[lKey]) {
+                  ligandsByKey[lKey] = { resn: hetResn, chain: hetChain, res: hetResi, atoms: 0 };
+                  ligandList.push(ligandsByKey[lKey]);
+                }
+                ligandsByKey[lKey].atoms += 1;
+              }
+            }
+            continue;
+          }
+
+          if (rec6 !== "ATOM  " || line.length < 54) { continue; }
+          var altLoc = line.slice(16, 17);
+          if (altLoc !== " " && altLoc !== "" && altLoc !== "A" && altLoc !== "1") { continue; }
+
+          var atomName = line.slice(12, 16).trim();
+          var resName = line.slice(17, 20).trim() || "UNK";
+          var chainId = line.slice(21, 22).trim() || "A";
+          var resSeq = parseInt(line.slice(22, 26).trim(), 10);
+          var x = parseFloat(line.slice(30, 38).trim());
+          var y = parseFloat(line.slice(38, 46).trim());
+          var z = parseFloat(line.slice(46, 54).trim());
+          if (isNaN(resSeq) || isNaN(x) || isNaN(y) || isNaN(z)) { continue; }
+          var bfac = 0.0;
+          if (line.length >= 66) {
+            var parsedB = parseFloat(line.slice(60, 66).trim());
+            if (!isNaN(parsedB)) { bfac = parsedB; }
+          }
+          var elem = (line.length >= 78 ? line.slice(76, 78).trim() : "").toUpperCase();
+          if (!elem) {
+            var stripped = atomName.replace(/^[0-9]+/, "");
+            elem = stripped ? stripped.charAt(0).toUpperCase() : "C";
+          }
+
+          totalAtomCount += 1;
+          if (!chainsSeen[chainId]) {
+            chainsSeen[chainId] = true;
+            chainList.push(chainId);
+          }
+
+          if (elem !== "H" && elem !== "D") {
+            var rKey = chainId + ":" + resSeq;
+            if (!seenRes[rKey]) {
+              seenRes[rKey] = true;
+              residueOrder.push(rKey);
+            }
+            var pt = {
+              res: resSeq,
+              chain: chainId,
+              resn: resName,
+              x: Math.round(x * 1000) / 1000,
+              y: Math.round(y * 1000) / 1000,
+              z: Math.round(z * 1000) / 1000,
+              b: Math.round(bfac * 100) / 100
+            };
+            if (!fallbackByRes[rKey]) { fallbackByRes[rKey] = pt; }
+            if (atomName === "CA" && !caByRes[rKey]) { caByRes[rKey] = pt; }
+            else if (atomName === "O" && !oByRes[rKey]) {
+              oByRes[rKey] = { ox: pt.x, oy: pt.y, oz: pt.z };
+            }
+            if (heavyAtoms.length < CLIENT_MAX_HEAVY_ATOMS) {
+              heavyAtoms.push({
+                n: atomName, rn: resName, c: chainId, r: resSeq,
+                x: pt.x, y: pt.y, z: pt.z, b: pt.b, e: elem
+              });
+            }
+          }
+        }
+
+        if (!residueOrder.length) {
+          throw new Error("No valid ATOM coordinate records found in " + filename);
+        }
+
+        var caTrace = residueOrder.map(function (rk) {
+          var base = caByRes[rk] ? caByRes[rk] : fallbackByRes[rk];
+          var copy = {
+            res: base.res, chain: base.chain, resn: base.resn,
+            x: base.x, y: base.y, z: base.z, b: base.b
+          };
+          if (oByRes[rk]) {
+            copy.ox = oByRes[rk].ox;
+            copy.oy = oByRes[rk].oy;
+            copy.oz = oByRes[rk].oz;
+          }
+          return copy;
+        });
+
+        var hasExplicitSS = Object.keys(ssMap).length > 0;
+        if (hasExplicitSS) {
+          caTrace.forEach(function (pt) {
+            pt.ss = ssMap[pt.chain + ":" + pt.res] || "C";
+          });
+        } else {
+          var inferred = inferCaSecondaryStructure(caTrace);
+          caTrace.forEach(function (pt, idx) { pt.ss = inferred[idx]; });
+        }
+
+        var ssLookup = {};
+        caTrace.forEach(function (pt) { ssLookup[pt.chain + ":" + pt.res] = pt.ss; });
+        heavyAtoms.forEach(function (at) { at.ss = ssLookup[at.c + ":" + at.r] || "C"; });
+
+        var sumB = 0, minB = Infinity, maxB = -Infinity;
+        caTrace.forEach(function (pt) {
+          sumB += pt.b;
+          if (pt.b < minB) { minB = pt.b; }
+          if (pt.b > maxB) { maxB = pt.b; }
+        });
+        var meanB = caTrace.length ? (sumB / caTrace.length) : 0;
+
+        var resolvedTitle = titleParts.join(" ").replace(/\s+/g, " ").trim() ||
+          molParts.join("; ").trim() ||
+          headerClass ||
+          filename;
+
+        return {
+          filename: filename,
+          format: "pdb",
+          viewer_format: "pdb",
+          chains: chainList,
+          residue_count: caTrace.length,
+          atom_count: totalAtomCount,
+          mean_bfactor: Math.round(meanB * 100) / 100,
+          min_bfactor: Math.round((isFinite(minB) ? minB : 0) * 100) / 100,
+          max_bfactor: Math.round((isFinite(maxB) ? maxB : 0) * 100) / 100,
+          raw_coordinates: rawText,
+          ca_trace: caTrace,
+          atoms: heavyAtoms,
+          pdb_id: pdbId,
+          title: resolvedTitle,
+          header_class: headerClass,
+          method: method || "Coordinate Model",
+          resolution: resolution,
+          ligands: ligandList,
+          meta_extracted: true
+        };
+      }
+
+      function parseCifClientSide(filename, rawText) {
+        var lines = String(rawText || "").split(/\r?\n/);
+        var nLines = lines.length;
+        var entryId = "";
+        var structTitle = "";
+        var method = "";
+        var resolution = "";
+        var ssMap = {};
+        var caByRes = {};
+        var oByRes = {};
+        var fallbackByRes = {};
+        var residueOrder = [];
+        var seenRes = {};
+        var chainsSeen = {};
+        var chainList = [];
+        var heavyAtoms = [];
+        var totalAtomCount = 0;
+        var ligandsByKey = {};
+        var ligandList = [];
+        var firstModelNum = null;
+
+        function firstCol(colMap, keys) {
+          for (var k = 0; k < keys.length; k++) {
+            if (Object.prototype.hasOwnProperty.call(colMap, keys[k])) {
+              return colMap[keys[k]];
+            }
+          }
+          return undefined;
+        }
+
+        var i = 0;
+        while (i < nLines) {
+          var stripped = lines[i].trim();
+          if (!stripped || stripped.charAt(0) === "#") { i++; continue; }
+          if (stripped.indexOf("data_") === 0 && !entryId) {
+            entryId = stripped.slice(5).trim();
+            i++;
+            continue;
+          }
+          if (stripped.indexOf("_struct.title") === 0) {
+            var tToks = tokenizeCifLine(stripped);
+            if (tToks.length >= 2) { structTitle = tToks.slice(1).join(" "); }
+            else if (i + 1 < nLines && lines[i + 1].trim().charAt(0) === ";") {
+              var semi = [lines[i + 1].trim().slice(1)];
+              i += 2;
+              while (i < nLines && lines[i].trim().charAt(0) !== ";") {
+                semi.push(lines[i].trim());
+                i++;
+              }
+              structTitle = semi.join(" ").trim();
+            }
+            i++;
+            continue;
+          }
+          if (stripped.indexOf("_exptl.method") === 0) {
+            var mToks = tokenizeCifLine(stripped);
+            if (mToks.length >= 2) { method = mToks.slice(1).join(" "); }
+            i++;
+            continue;
+          }
+          if (stripped.indexOf("_refine.ls_d_res_high") === 0 || stripped.indexOf("_em_3d_reconstruction.resolution") === 0) {
+            var rToks = tokenizeCifLine(stripped);
+            if (rToks.length >= 2 && rToks[1] !== "." && rToks[1] !== "?") {
+              resolution = rToks[1] + " A";
+            }
+            i++;
+            continue;
+          }
+
+          if (stripped === "loop_") {
+            i++;
+            var headers = [];
+            while (i < nLines) {
+              var hLine = lines[i].trim();
+              if (!hLine || hLine.charAt(0) === "#") { i++; continue; }
+              if (hLine.charAt(0) === "_") {
+                headers.push(hLine.split(/\s+/)[0]);
+                i++;
+              } else {
+                break;
+              }
+            }
+            var colMap = {};
+            headers.forEach(function (h, idx) { colMap[h] = idx; });
+            var isAtomLoop = headers.some(function (h) { return h.indexOf("_atom_site.") === 0; });
+            var isHelixLoop = headers.some(function (h) { return h.indexOf("_struct_conf.") === 0; });
+            var isSheetLoop = headers.some(function (h) { return h.indexOf("_struct_sheet_range.") === 0; });
+
+            while (i < nLines) {
+              var dLine = lines[i].trim();
+              if (!dLine || dLine.charAt(0) === "#") { i++; continue; }
+              if (dLine === "loop_" || dLine.charAt(0) === "_" || dLine.indexOf("data_") === 0 || dLine.charAt(0) === ";") {
+                break;
+              }
+              if (isAtomLoop || isHelixLoop || isSheetLoop) {
+                var toks = tokenizeCifLine(dLine);
+                if (toks.length >= headers.length) {
+                  if (isHelixLoop) {
+                    var cTypeIdx = firstCol(colMap, ["_struct_conf.conf_type_id"]);
+                    var hChIdx = firstCol(colMap, ["_struct_conf.beg_auth_asym_id", "_struct_conf.beg_label_asym_id"]);
+                    var hBegIdx = firstCol(colMap, ["_struct_conf.beg_auth_seq_id", "_struct_conf.beg_label_seq_id"]);
+                    var hEndIdx = firstCol(colMap, ["_struct_conf.end_auth_seq_id", "_struct_conf.end_label_seq_id"]);
+                    var cType = cTypeIdx !== undefined ? toks[cTypeIdx] : "HELX_P";
+                    if (cType.toUpperCase().indexOf("HELX") === 0 && hBegIdx !== undefined && hEndIdx !== undefined) {
+                      var hc = (hChIdx !== undefined && toks[hChIdx] !== "." && toks[hChIdx] !== "?") ? toks[hChIdx] : "A";
+                      var hb = parseInt(toks[hBegIdx], 10), he = parseInt(toks[hEndIdx], 10);
+                      if (!isNaN(hb) && !isNaN(he)) {
+                        for (var r1 = hb; r1 <= he; r1++) { ssMap[hc + ":" + r1] = "H"; }
+                      }
+                    }
+                  } else if (isSheetLoop) {
+                    var sChIdx = firstCol(colMap, ["_struct_sheet_range.beg_auth_asym_id", "_struct_sheet_range.beg_label_asym_id"]);
+                    var sBegIdx = firstCol(colMap, ["_struct_sheet_range.beg_auth_seq_id", "_struct_sheet_range.beg_label_seq_id"]);
+                    var sEndIdx = firstCol(colMap, ["_struct_sheet_range.end_auth_seq_id", "_struct_sheet_range.end_label_seq_id"]);
+                    if (sBegIdx !== undefined && sEndIdx !== undefined) {
+                      var sc = (sChIdx !== undefined && toks[sChIdx] !== "." && toks[sChIdx] !== "?") ? toks[sChIdx] : "A";
+                      var sb = parseInt(toks[sBegIdx], 10), se = parseInt(toks[sEndIdx], 10);
+                      if (!isNaN(sb) && !isNaN(se)) {
+                        for (var r2 = sb; r2 <= se; r2++) {
+                          if (!ssMap[sc + ":" + r2]) { ssMap[sc + ":" + r2] = "E"; }
+                        }
+                      }
+                    }
+                  } else if (isAtomLoop) {
+                    var grpIdx = firstCol(colMap, ["_atom_site.group_PDB"]);
+                    var atmIdx = firstCol(colMap, ["_atom_site.label_atom_id", "_atom_site.auth_atom_id"]);
+                    var rsnIdx = firstCol(colMap, ["_atom_site.label_comp_id", "_atom_site.auth_comp_id"]);
+                    var chnIdx = firstCol(colMap, ["_atom_site.auth_asym_id", "_atom_site.label_asym_id"]);
+                    var seqIdx = firstCol(colMap, ["_atom_site.auth_seq_id", "_atom_site.label_seq_id"]);
+                    var xIdx = firstCol(colMap, ["_atom_site.Cartn_x"]);
+                    var yIdx = firstCol(colMap, ["_atom_site.Cartn_y"]);
+                    var zIdx = firstCol(colMap, ["_atom_site.Cartn_z"]);
+                    var bIdx = firstCol(colMap, ["_atom_site.B_iso_or_equiv"]);
+                    var altIdx = firstCol(colMap, ["_atom_site.label_alt_id"]);
+                    var modIdx = firstCol(colMap, ["_atom_site.pdbx_PDB_model_num"]);
+                    var elmIdx = firstCol(colMap, ["_atom_site.type_symbol"]);
+
+                    var groupVal = grpIdx !== undefined ? toks[grpIdx] : "ATOM";
+                    var modelVal = modIdx !== undefined ? toks[modIdx] : "1";
+                    if (firstModelNum === null) { firstModelNum = modelVal; }
+                    if (modelVal === firstModelNum) {
+                      var chId = (chnIdx !== undefined && toks[chnIdx] !== "." && toks[chnIdx] !== "?") ? toks[chnIdx] : "A";
+                      var rsName = rsnIdx !== undefined ? toks[rsnIdx].toUpperCase() : "UNK";
+                      var rsSeq = seqIdx !== undefined ? parseInt(toks[seqIdx], 10) : NaN;
+                      if (groupVal === "HETATM" && !WATER_RESN[rsName] && !isNaN(rsSeq)) {
+                        var lk = chId + ":" + rsSeq + ":" + rsName;
+                        if (!ligandsByKey[lk]) {
+                          ligandsByKey[lk] = { resn: rsName, chain: chId, res: rsSeq, atoms: 0 };
+                          ligandList.push(ligandsByKey[lk]);
+                        }
+                        ligandsByKey[lk].atoms += 1;
+                      } else if (groupVal === "ATOM" && xIdx !== undefined && yIdx !== undefined && zIdx !== undefined && !isNaN(rsSeq)) {
+                        var altVal = altIdx !== undefined ? toks[altIdx] : ".";
+                        if (altVal === "." || altVal === "?" || altVal === "A" || altVal === "1") {
+                          var cx = parseFloat(toks[xIdx]), cy = parseFloat(toks[yIdx]), cz = parseFloat(toks[zIdx]);
+                          var cb = (bIdx !== undefined && !isNaN(parseFloat(toks[bIdx]))) ? parseFloat(toks[bIdx]) : 0.0;
+                          if (!isNaN(cx) && !isNaN(cy) && !isNaN(cz)) {
+                            totalAtomCount += 1;
+                            if (!chainsSeen[chId]) { chainsSeen[chId] = true; chainList.push(chId); }
+                            var atName = atmIdx !== undefined ? toks[atmIdx] : "CA";
+                            var elSym = elmIdx !== undefined ? toks[elmIdx].toUpperCase() : "";
+                            if (!elSym || elSym === "." || elSym === "?") {
+                              var st = atName.replace(/^[0-9]+/, "");
+                              elSym = st ? st.charAt(0).toUpperCase() : "C";
+                            }
+                            if (elSym !== "H" && elSym !== "D") {
+                              var rk2 = chId + ":" + rsSeq;
+                              if (!seenRes[rk2]) { seenRes[rk2] = true; residueOrder.push(rk2); }
+                              var cpt = {
+                                res: rsSeq, chain: chId, resn: rsName,
+                                x: Math.round(cx * 1000) / 1000,
+                                y: Math.round(cy * 1000) / 1000,
+                                z: Math.round(cz * 1000) / 1000,
+                                b: Math.round(cb * 100) / 100
+                              };
+                              if (!fallbackByRes[rk2]) { fallbackByRes[rk2] = cpt; }
+                              if (atName === "CA" && !caByRes[rk2]) { caByRes[rk2] = cpt; }
+                              else if (atName === "O" && !oByRes[rk2]) {
+                                oByRes[rk2] = { ox: cpt.x, oy: cpt.y, oz: cpt.z };
+                              }
+                              if (heavyAtoms.length < CLIENT_MAX_HEAVY_ATOMS) {
+                                heavyAtoms.push({
+                                  n: atName, rn: rsName, c: chId, r: rsSeq,
+                                  x: cpt.x, y: cpt.y, z: cpt.z, b: cpt.b, e: elSym
+                                });
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+              i++;
+            }
+            continue;
+          }
+          i++;
+        }
+
+        if (!residueOrder.length) {
+          throw new Error("No valid _atom_site ATOM records found in " + filename);
+        }
+
+        var caTrace = residueOrder.map(function (rk) {
+          var base = caByRes[rk] ? caByRes[rk] : fallbackByRes[rk];
+          var copy = {
+            res: base.res, chain: base.chain, resn: base.resn,
+            x: base.x, y: base.y, z: base.z, b: base.b
+          };
+          if (oByRes[rk]) {
+            copy.ox = oByRes[rk].ox;
+            copy.oy = oByRes[rk].oy;
+            copy.oz = oByRes[rk].oz;
+          }
+          return copy;
+        });
+
+        if (Object.keys(ssMap).length > 0) {
+          caTrace.forEach(function (pt) { pt.ss = ssMap[pt.chain + ":" + pt.res] || "C"; });
+        } else {
+          var inferred = inferCaSecondaryStructure(caTrace);
+          caTrace.forEach(function (pt, idx) { pt.ss = inferred[idx]; });
+        }
+        var ssLookup = {};
+        caTrace.forEach(function (pt) { ssLookup[pt.chain + ":" + pt.res] = pt.ss; });
+        heavyAtoms.forEach(function (at) { at.ss = ssLookup[at.c + ":" + at.r] || "C"; });
+
+        var sumB = 0, minB = Infinity, maxB = -Infinity;
+        caTrace.forEach(function (pt) {
+          sumB += pt.b;
+          if (pt.b < minB) { minB = pt.b; }
+          if (pt.b > maxB) { maxB = pt.b; }
+        });
+        var meanB = caTrace.length ? (sumB / caTrace.length) : 0;
+
+        return {
+          filename: filename,
+          format: "cif",
+          viewer_format: "cif",
+          chains: chainList,
+          residue_count: caTrace.length,
+          atom_count: totalAtomCount,
+          mean_bfactor: Math.round(meanB * 100) / 100,
+          min_bfactor: Math.round((isFinite(minB) ? minB : 0) * 100) / 100,
+          max_bfactor: Math.round((isFinite(maxB) ? maxB : 0) * 100) / 100,
+          raw_coordinates: rawText,
+          ca_trace: caTrace,
+          atoms: heavyAtoms,
+          pdb_id: entryId,
+          title: structTitle || entryId || filename,
+          header_class: "",
+          method: method || "mmCIF Coordinate Model",
+          resolution: resolution,
+          ligands: ligandList,
+          meta_extracted: true
+        };
+      }
+
+      function parseStructureClientSide(filename, rawText) {
+        var cleanName = String(filename || "structure.pdb").split(/[\\/]/).pop() || "structure.pdb";
+        var text = String(rawText || "");
+        if (!text.trim()) {
+          throw new Error("Empty coordinate file: " + cleanName);
+        }
+        var lower = cleanName.toLowerCase();
+        var isCif = /\.(cif|mmcif)$/.test(lower) ||
+          (!/\.(pdb|ent)$/.test(lower) && text.indexOf("_atom_site.") !== -1);
+        return isCif ? parseCifClientSide(cleanName, text) : parsePdbClientSide(cleanName, text);
+      }
+
+      function ensureStructureMetadata(q) {
+        if (!q || q.meta_extracted || !q.raw_coordinates) { return; }
+        try {
+          var parsed = parseStructureClientSide(q.filename || "query.pdb", q.raw_coordinates);
+          q.pdb_id = parsed.pdb_id;
+          q.title = parsed.title;
+          q.header_class = parsed.header_class;
+          q.method = parsed.method;
+          q.resolution = parsed.resolution;
+          q.ligands = parsed.ligands;
+          q.meta_extracted = true;
+        } catch (_e) {
+          q.meta_extracted = true;
+        }
+      }
+
+      function computeStructureDetails(q) {
+        ensureStructureMetadata(q);
+        var trace = (q && q.ca_trace) ? q.ca_trace : [];
+        var atoms = (q && q.atoms && q.atoms.length) ? q.atoms : trace;
+        var nRes = trace.length;
+
+        var minX = Infinity, maxX = -Infinity;
+        var minY = Infinity, maxY = -Infinity;
+        var minZ = Infinity, maxZ = -Infinity;
+        atoms.forEach(function (a) {
+          if (a.x < minX) { minX = a.x; }
+          if (a.x > maxX) { maxX = a.x; }
+          if (a.y < minY) { minY = a.y; }
+          if (a.y > maxY) { maxY = a.y; }
+          if (a.z < minZ) { minZ = a.z; }
+          if (a.z > maxZ) { maxZ = a.z; }
+        });
+        var dimX = isFinite(maxX - minX) ? (maxX - minX) : 0;
+        var dimY = isFinite(maxY - minY) ? (maxY - minY) : 0;
+        var dimZ = isFinite(maxZ - minZ) ? (maxZ - minZ) : 0;
+
+        var cx = 0, cy = 0, cz = 0;
+        trace.forEach(function (p) { cx += p.x; cy += p.y; cz += p.z; });
+        if (nRes > 0) { cx /= nRes; cy /= nRes; cz /= nRes; }
+        var sumR2 = 0;
+        trace.forEach(function (p) {
+          var dx = p.x - cx, dy = p.y - cy, dz = p.z - cz;
+          sumR2 += dx * dx + dy * dy + dz * dz;
+        });
+        var rg = nRes > 0 ? Math.sqrt(sumR2 / nRes) : 0;
+
+        var hCount = 0, eCount = 0, cCount = 0;
+        var hydroCnt = 0, polarCnt = 0, chargedCnt = 0;
+        var chainStats = {};
+        var chainOrder = [];
+        var seqResidues = [];
+
+        var atomCountsByChain = {};
+        atoms.forEach(function (a) {
+          var ch = a.c || a.chain || "A";
+          atomCountsByChain[ch] = (atomCountsByChain[ch] || 0) + 1;
+        });
+
+        trace.forEach(function (p, idx) {
+          var ss = (p.ss === "H" || p.ss === "E") ? p.ss : "C";
+          if (ss === "H") { hCount++; }
+          else if (ss === "E") { eCount++; }
+          else { cCount++; }
+
+          var aa1 = AA3_TO_1[String(p.resn || "").toUpperCase()] || "X";
+          if (HYDROPHOBIC_AA[aa1]) { hydroCnt++; }
+          else if (CHARGED_AA[aa1]) { chargedCnt++; }
+          else if (POLAR_AA[aa1]) { polarCnt++; }
+
+          var ch = p.chain || "A";
+          if (!chainStats[ch]) {
+            chainStats[ch] = {
+              chain: ch,
+              minRes: p.res,
+              maxRes: p.res,
+              resCount: 0,
+              sumB: 0,
+              h: 0,
+              e: 0,
+              c: 0,
+              seq: ""
+            };
+            chainOrder.push(ch);
+          }
+          var cs = chainStats[ch];
+          if (p.res < cs.minRes) { cs.minRes = p.res; }
+          if (p.res > cs.maxRes) { cs.maxRes = p.res; }
+          cs.resCount += 1;
+          cs.sumB += (typeof p.b === "number" ? p.b : 0);
+          if (ss === "H") { cs.h++; }
+          else if (ss === "E") { cs.e++; }
+          else { cs.c++; }
+          cs.seq += aa1;
+
+          seqResidues.push({
+            idx: idx,
+            res: p.res,
+            chain: ch,
+            resn: p.resn || "UNK",
+            aa1: aa1,
+            ss: ss,
+            b: typeof p.b === "number" ? p.b : 0
+          });
+        });
+
+        var chainRows = chainOrder.map(function (ch) {
+          var cs = chainStats[ch];
+          return {
+            chain: ch,
+            minRes: cs.minRes,
+            maxRes: cs.maxRes,
+            resCount: cs.resCount,
+            heavyAtoms: atomCountsByChain[ch] || cs.resCount,
+            meanB: cs.resCount ? (cs.sumB / cs.resCount) : 0,
+            h: cs.h,
+            e: cs.e,
+            c: cs.c,
+            seq: cs.seq
+          };
+        });
+
+        // Contiguous secondary structure elements (Helices, Beta-Strands, and Loops >= 3 aa)
+        var sseRows = [];
+        var hIdx = 0, eIdx = 0, lIdx = 0;
+        var curSeg = null;
+        seqResidues.forEach(function (r) {
+          if (!curSeg || curSeg.chain !== r.chain || curSeg.ss !== r.ss || r.res > curSeg.end + 2) {
+            if (curSeg) { sseRows.push(curSeg); }
+            curSeg = {
+              ss: r.ss,
+              chain: r.chain,
+              start: r.res,
+              end: r.res,
+              len: 1,
+              sumB: r.b,
+              seq: r.aa1
+            };
+          } else {
+            curSeg.end = r.res;
+            curSeg.len += 1;
+            curSeg.sumB += r.b;
+            curSeg.seq += r.aa1;
+          }
+        });
+        if (curSeg) { sseRows.push(curSeg); }
+
+        var filteredSse = sseRows.filter(function (seg) {
+          return seg.ss === "H" || seg.ss === "E" || seg.len >= 3;
+        }).map(function (seg) {
+          var idCode, label;
+          if (seg.ss === "H") { hIdx++; idCode = "H" + hIdx; label = "Alpha-Helix"; }
+          else if (seg.ss === "E") { eIdx++; idCode = "E" + eIdx; label = "Beta-Strand"; }
+          else { lIdx++; idCode = "L" + lIdx; label = "Coil / Loop"; }
+          return {
+            id: idCode,
+            ss: seg.ss,
+            label: label,
+            chain: seg.chain,
+            start: seg.start,
+            end: seg.end,
+            len: seg.len,
+            meanB: seg.len ? (seg.sumB / seg.len) : 0,
+            seq: seg.seq
+          };
+        });
+
+        var denom = Math.max(1, nRes);
+        var ligands = (q && q.ligands) ? q.ligands : [];
+        var ligandSummary = ligands.length
+          ? ligands.slice(0, 4).map(function (l) { return l.resn + " (" + l.chain + ":" + l.res + ")"; }).join(", ") +
+            (ligands.length > 4 ? " +" + (ligands.length - 4) : "")
+          : "Apo coordinate model";
+
+        return {
+          title: (q && q.title) || (q && q.filename) || "Query Structure",
+          pdbId: (q && q.pdb_id) || "",
+          headerClass: (q && q.header_class) || "",
+          format: ((q && q.viewer_format) || "pdb").toUpperCase(),
+          method: (q && q.method) || "Coordinate Model",
+          resolution: (q && q.resolution) || "",
+          residueCount: nRes,
+          atomCount: (q && q.atom_count) || atoms.length,
+          heavyAtomLoaded: atoms.length,
+          massKda: nRes * 0.110,
+          rg: rg,
+          boxLabel: dimX.toFixed(1) + " x " + dimY.toFixed(1) + " x " + dimZ.toFixed(1) + " A",
+          hCount: hCount,
+          eCount: eCount,
+          cCount: cCount,
+          hPct: (hCount / denom) * 100,
+          ePct: (eCount / denom) * 100,
+          cPct: (cCount / denom) * 100,
+          hydroPct: (hydroCnt / denom) * 100,
+          polarPct: (polarCnt / denom) * 100,
+          chargedPct: (chargedCnt / denom) * 100,
+          ligands: ligands,
+          ligandSummary: ligandSummary,
+          chainRows: chainRows,
+          sseRows: filteredSse,
+          seqResidues: seqResidues
+        };
+      }
+
+      function updateSeqHighlightSelection() {
+        var box = document.getElementById("struct-seq-box");
+        if (!box) { return; }
+        var hr = state.highlightRange;
+        Array.prototype.forEach.call(box.querySelectorAll(".seq-res-char"), function (el) {
+          var r = parseInt(el.getAttribute("data-res"), 10);
+          var active = !!(hr && r >= hr.start && r <= hr.end);
+          el.classList.toggle("active", active);
+        });
+      }
+
+      var _baseHighlightResidueRange = window.highlightResidueRange;
+      window.highlightResidueRange = function (qStart, qEnd, targetLabel) {
+        _baseHighlightResidueRange(qStart, qEnd, targetLabel);
+        updateSeqHighlightSelection();
+      };
+
+      function renderStructureDetails() {
+        var q = DASHBOARD_DATA.query_structure || {};
+        var sd = state.structDetails || computeStructureDetails(q);
+        state.structDetails = sd;
+
+        var kvGrid = document.getElementById("struct-kv-grid");
+        var idPrefix = sd.pdbId ? (sd.pdbId + " - ") : "";
+        var fmtMethod = sd.format + " | " + sd.method + (sd.resolution ? (" (" + sd.resolution + ")") : "");
+        var kvItems = [
+          { label: "Entry / Title", val: idPrefix + sd.title },
+          { label: "Format & Method", val: fmtMethod },
+          { label: "Radius of Gyration", val: sd.rg.toFixed(2) + " A (" + sd.massKda.toFixed(1) + " kDa est.)" },
+          { label: "Bounding Box", val: sd.boxLabel },
+          { label: "Secondary Structure", val: sd.hPct.toFixed(1) + "% H | " + sd.ePct.toFixed(1) + "% E | " + sd.cPct.toFixed(1) + "% C" },
+          { label: "Residue Chemistry", val: sd.hydroPct.toFixed(0) + "% Hydrophobic | " + sd.polarPct.toFixed(0) + "% Polar | " + sd.chargedPct.toFixed(0) + "% Charged" },
+          { label: "Coordinate Atoms", val: sd.atomCount + " total (" + sd.heavyAtomLoaded + " heavy rendered)" },
+          { label: "Bound Ligands (HETATM)", val: sd.ligands.length ? sd.ligandSummary : "None (apo)" }
+        ];
+        kvGrid.innerHTML = kvItems.map(function (item) {
+          return (
+            '<div class="struct-kv-item">' +
+              '<span class="struct-kv-label">' + esc(item.label) + '</span>' +
+              '<span class="struct-kv-val" title="' + esc(item.val) + '">' + esc(item.val) + '</span>' +
+            '</div>'
+          );
+        }).join("");
+
+        var chTbody = document.getElementById("struct-chains-tbody");
+        chTbody.innerHTML = sd.chainRows.map(function (c) {
+          return (
+            '<tr data-start="' + c.minRes + '" data-end="' + c.maxRes + '" data-chain="' + esc(c.chain) + '">' +
+              '<td><strong>Chain ' + esc(c.chain) + '</strong></td>' +
+              '<td class="num">' + c.minRes + '-' + c.maxRes + '</td>' +
+              '<td class="num">' + c.resCount + ' aa</td>' +
+              '<td class="num">' + c.heavyAtoms + '</td>' +
+              '<td class="num">' + c.meanB.toFixed(1) + '</td>' +
+              '<td class="num">' + c.h + ' / ' + c.e + ' / ' + c.c + '</td>' +
+            '</tr>'
+          );
+        }).join("") || '<tr><td colspan="6" style="color:var(--text-secondary);">No chains</td></tr>';
+
+        Array.prototype.forEach.call(chTbody.querySelectorAll("tr[data-chain]"), function (tr) {
+          tr.addEventListener("click", function () {
+            var s = parseInt(tr.getAttribute("data-start"), 10);
+            var e = parseInt(tr.getAttribute("data-end"), 10);
+            var ch = tr.getAttribute("data-chain");
+            window.highlightResidueRange(s, e, "Chain " + ch);
+          });
+        });
+
+        var sseTbody = document.getElementById("struct-sse-tbody");
+        sseTbody.innerHTML = sd.sseRows.map(function (seg) {
+          var col = seg.ss === "H" ? "#0D9488" : (seg.ss === "E" ? "#4F46E5" : "#D97706");
+          var seqPreview = seg.seq.length > 18 ? (seg.seq.slice(0, 17) + "...") : seg.seq;
+          return (
+            '<tr data-start="' + seg.start + '" data-end="' + seg.end + '" data-lbl="' + esc(seg.id + " " + seg.label) + '">' +
+              '<td><span class="regime-indicator"><span class="regime-dot" style="background:' + col + ';"></span>' + esc(seg.id) + '</span></td>' +
+              '<td>' + esc(seg.label) + '</td>' +
+              '<td>' + esc(seg.chain) + '</td>' +
+              '<td class="num">' + seg.start + '-' + seg.end + '</td>' +
+              '<td class="num">' + seg.len + '</td>' +
+              '<td class="num">' + seg.meanB.toFixed(1) + '</td>' +
+              '<td title="' + esc(seg.seq) + '">' + esc(seqPreview) + '</td>' +
+            '</tr>'
+          );
+        }).join("") || '<tr><td colspan="7" style="color:var(--text-secondary);">No secondary structure segments</td></tr>';
+
+        Array.prototype.forEach.call(sseTbody.querySelectorAll("tr[data-start]"), function (tr) {
+          tr.addEventListener("click", function () {
+            var s = parseInt(tr.getAttribute("data-start"), 10);
+            var e = parseInt(tr.getAttribute("data-end"), 10);
+            var lbl = tr.getAttribute("data-lbl");
+            window.highlightResidueRange(s, e, lbl);
+          });
+        });
+
+        var seqBox = document.getElementById("struct-seq-box");
+        var seqHtml = [];
+        for (var idx = 0; idx < sd.seqResidues.length; idx++) {
+          var r = sd.seqResidues[idx];
+          if (idx > 0 && idx % 10 === 0) {
+            seqHtml.push(idx % 50 === 0 ? "<br>" : " ");
+          }
+          if (idx % 50 === 0) {
+            var numStr = String(r.res);
+            while (numStr.length < 4) { numStr = " " + numStr; }
+            seqHtml.push('<span style="color:var(--text-secondary); user-select:none;">' + esc(numStr) + " </span>");
+          }
+          var ssCol = r.ss === "H" ? "#0D9488" : (r.ss === "E" ? "#4F46E5" : "inherit");
+          seqHtml.push(
+            '<span class="seq-res-char" data-res="' + r.res + '" data-chain="' + esc(r.chain) +
+            '" data-resn="' + esc(r.resn) + '" data-ss="' + esc(r.ss) + '" data-b="' + r.b.toFixed(1) +
+            '" style="color:' + ssCol + ';">' + esc(r.aa1) + '</span>'
+          );
+        }
+        seqBox.innerHTML = seqHtml.join("");
+        updateSeqHighlightSelection();
+
+        Array.prototype.forEach.call(seqBox.querySelectorAll(".seq-res-char"), function (sp) {
+          sp.addEventListener("click", function () {
+            var resNum = parseInt(sp.getAttribute("data-res"), 10);
+            var ch = sp.getAttribute("data-chain");
+            var rn = sp.getAttribute("data-resn");
+            window.highlightResidueRange(resNum, resNum, ch + ":" + rn + resNum);
+          });
+          sp.addEventListener("mousemove", function (evt) {
+            var ssCode = sp.getAttribute("data-ss");
+            var ssText = ssCode === "H" ? "Alpha-Helix" : (ssCode === "E" ? "Beta-Strand" : "Coil");
+            showTooltip(
+              evt,
+              '<div class="mono"><strong>Chain ' + esc(sp.getAttribute("data-chain")) + " | " +
+              esc(sp.getAttribute("data-resn")) + " " + esc(sp.getAttribute("data-res")) + "</strong></div>" +
+              '<div class="mono" style="color:var(--text-secondary);">' + ssText + " | B/pLDDT: " + esc(sp.getAttribute("data-b")) + "</div>"
+            );
+          });
+          sp.addEventListener("mouseleave", hideTooltip);
+        });
+      }
+
+      function syncInspectorView() {
+        var modeSel = document.getElementById("select-inspector-mode");
+        var profSel = document.getElementById("select-profile-metric");
+        var tracksWrap = document.getElementById("tracks-pane-wrap");
+        var detailsWrap = document.getElementById("struct-details-pane");
+        var trackColorWrap = document.getElementById("wrap-track-color");
+        var titleEl = document.getElementById("inspector-cell-title");
+        var restoreBtn = document.getElementById("btn-restore-session");
+
+        var isStruct = state.inspectorMode === "structure";
+        if (modeSel) { modeSel.value = state.inspectorMode; }
+        if (profSel) { profSel.value = state.profileMetric; }
+        if (tracksWrap) { tracksWrap.style.display = isStruct ? "none" : "flex"; }
+        if (detailsWrap) {
+          detailsWrap.classList.toggle("active", isStruct);
+          detailsWrap.style.display = isStruct ? "flex" : "none";
+        }
+        if (trackColorWrap) { trackColorWrap.style.display = isStruct ? "none" : "inline-flex"; }
+        if (titleEl) {
+          titleEl.textContent = isStruct
+            ? "Structure Details & Secondary Architecture"
+            : "Residue Conservation & Alignment Coverage Map";
+        }
+        if (restoreBtn) {
+          restoreBtn.style.display = state.isCustomSession ? "inline-flex" : "none";
+        }
+      }
+
+      /* ---------------- Client-Side Foldseek JSON Normalizer & API Search ---------------- */
+      var STOPWORDS_CLIENT = {
+        protein: 1, proteins: 1, domain: 1, domains: 1, subunit: 1, chain: 1, chains: 1,
+        like: 1, putative: 1, uncharacterized: 1, hypothetical: 1, predicted: 1,
+        synthetic: 1, construct: 1, model: 1, fold: 1, superfamily: 1, family: 1,
+        the: 1, and: 1, for: 1, with: 1, from: 1, type: 1, class: 1, member: 1
+      };
+
+      function formatEvalueClient(ev) {
+        if (ev === 0) { return "0.0"; }
+        if (ev < 1e-3 || ev >= 1e4) { return ev.toExponential(2); }
+        return Number(ev.toPrecision(4)).toString();
+      }
+
+      function inferTargetUrlClient(accession, dbName) {
+        var acc = String(accession || "").trim();
+        var db = String(dbName || "").toLowerCase();
+        var af = /(AF-[A-Za-z0-9]+-F\d+)/.exec(acc);
+        if (af) {
+          return { url: "https://alphafold.ebi.ac.uk/files/" + af[1] + "-model_v4.cif", fmt: "cif" };
+        }
+        if (db.indexOf("pdb") === 0 && /^[0-9][A-Za-z0-9]{3}(?:_[A-Za-z0-9]+)?$/.test(acc)) {
+          var code = acc.slice(0, 4).toUpperCase();
+          return { url: "https://files.rcsb.org/download/" + code + ".cif", fmt: "cif" };
+        }
+        return { url: null, fmt: null };
+      }
+
+      function normalizeFoldseekHitsClientSide(rawObj, queryLenFallback) {
+        if (rawObj && Array.isArray(rawObj.hits) && rawObj.summary_kpis) {
+          return rawObj;
+        }
+        var rawResults = (rawObj && Array.isArray(rawObj.results)) ? rawObj.results : [];
+        var flat = [];
+        rawResults.forEach(function (grp) {
+          if (!grp || typeof grp !== "object") { return; }
+          var db = String(grp.db || "unknown");
+          var alns = grp.alignments;
+          if (!Array.isArray(alns)) { return; }
+          alns.forEach(function (entry) {
+            if (Array.isArray(entry)) {
+              entry.forEach(function (sub) {
+                if (sub && typeof sub === "object") { flat.push({ db: db, hit: sub }); }
+              });
+            } else if (entry && typeof entry === "object") {
+              flat.push({ db: db, hit: entry });
+            }
+          });
+        });
+
+        flat.sort(function (a, b) {
+          var pa = parseFloat(a.hit.prob || 0) || 0;
+          var pb = parseFloat(b.hit.prob || 0) || 0;
+          if (pb !== pa) { return pb - pa; }
+          var ea = parseFloat(a.hit.eval != null ? a.hit.eval : (a.hit.evalue != null ? a.hit.evalue : 1000));
+          var eb = parseFloat(b.hit.eval != null ? b.hit.eval : (b.hit.evalue != null ? b.hit.evalue : 1000));
+          return ea - eb;
+        });
+
+        var inferredQLen = queryLenFallback || 0;
+        flat.forEach(function (item) {
+          var ql = parseInt(item.hit.qLen || item.hit.qlen || 0, 10) || 0;
+          if (ql > inferredQLen) { inferredQLen = ql; }
+        });
+        var qLen = Math.max(1, queryLenFallback || inferredQLen || 1);
+        var covProf = [];
+        for (var ci = 0; ci < qLen; ci++) { covProf.push(0); }
+
+        var dbStats = {};
+        var kwStats = {};
+        var hits = flat.slice(0, 300).map(function (item, idx) {
+          var h = item.hit;
+          var db = item.db;
+          var rawTarget = String(h.target || "unknown").trim();
+          var spIdx = rawTarget.search(/\s/);
+          var rawAcc = spIdx === -1 ? rawTarget : rawTarget.slice(0, spIdx);
+          var restDesc = spIdx === -1 ? "" : rawTarget.slice(spIdx + 1).trim();
+          var acc = rawAcc.replace(/-model_v\d+(?:\.(?:cif|pdb))?(?:\.gz)?$/, "").replace(/\.(?:cif|pdb|ent)(?:\.gz)?$/, "");
+          var org = "";
+          var osMatch = /\bOS=([^=]+?)(?:\s+(?:OX|GN|PE|SV)=|$)/.exec(restDesc);
+          if (osMatch) {
+            org = osMatch[1].trim();
+            restDesc = restDesc.replace(/\b(?:OS|OX|GN|PE|SV)=[^\s]+(?:\s+(?![A-Z]{2}=)[^\s]+)*/g, "").trim();
+          }
+          var desc = restDesc || acc;
+
+          var prob = Math.max(0, Math.min(1, parseFloat(h.prob || 0) || 0));
+          var evRaw = h.eval != null ? h.eval : (h.eValue != null ? h.eValue : h.evalue);
+          var ev = (evRaw != null && !isNaN(parseFloat(evRaw)) && parseFloat(evRaw) >= 0) ? parseFloat(evRaw) : 1000;
+          var negLog = ev <= 1e-50 ? 50.0 : Math.min(50.0, Math.max(0.0, -Math.log(ev) / Math.LN10));
+
+          var rawSeq = h.seqId != null ? h.seqId : (h.seqIdentity != null ? h.seqIdentity : (h.fident != null ? h.fident : h.pident));
+          var seqVal = (rawSeq != null && !isNaN(parseFloat(rawSeq))) ? parseFloat(rawSeq) : 0;
+          var seqPct = seqVal <= 1.0 ? (seqVal * 100.0) : Math.min(100.0, seqVal);
+
+          var qStart = parseInt(h.qStartPos || 0, 10) || 0;
+          var qEnd = parseInt(h.qEndPos || 0, 10) || 0;
+          var hQLen = parseInt(h.qLen || qLen, 10) || qLen;
+          var qCov = (hQLen > 0 && qEnd >= qStart && qStart > 0)
+            ? Math.min(100.0, ((qEnd - qStart + 1) / hQLen) * 100.0)
+            : 0.0;
+
+          if (qStart >= 1 && qEnd >= qStart) {
+            for (var rPos = qStart; rPos <= Math.min(qLen, qEnd); rPos++) {
+              covProf[rPos - 1] += 1;
+            }
+          }
+
+          var regime = prob < 0.50
+            ? "Low Confidence"
+            : (prob >= 0.80
+              ? (seqPct >= 30.0 ? "High-Identity Homolog" : "Remote Structural Homolog (Twilight Zone)")
+              : "Local / Partial Motif Match");
+
+          var urlInfo = inferTargetUrlClient(acc, db);
+
+          if (!dbStats[db]) { dbStats[db] = { database: db, count: 0, sumProb: 0 }; }
+          dbStats[db].count += 1;
+          dbStats[db].sumProb += prob;
+
+          var words = desc.toLowerCase().match(/[a-z][a-z0-9-]{2,}/g) || [];
+          var chosenKw = "Other / Divergent Annotations";
+          for (var wi = 0; wi < words.length; wi++) {
+            if (!STOPWORDS_CLIENT[words[wi]]) {
+              chosenKw = words[wi].charAt(0).toUpperCase() + words[wi].slice(1) + " Family";
+              break;
+            }
+          }
+          if (!kwStats[chosenKw]) { kwStats[chosenKw] = { label: chosenKw, count: 0, sumProb: 0 }; }
+          kwStats[chosenKw].count += 1;
+          kwStats[chosenKw].sumProb += prob;
+
+          return {
+            rank: idx + 1,
+            database: db,
+            target_id: rawTarget,
+            accession: acc,
+            description: desc,
+            organism: org,
+            prob: Math.round(prob * 10000) / 10000,
+            prob_display: prob.toFixed(2),
+            evalue: ev,
+            evalue_display: formatEvalueClient(ev),
+            neg_log10_evalue: Math.round(negLog * 1000) / 1000,
+            score: parseFloat(h.score || 0) || 0,
+            seq_identity_pct: Math.round(seqPct * 100) / 100,
+            seq_identity_display: seqPct.toFixed(1) + "%",
+            aln_len: parseInt(h.alnLength || h.alnLen || 0, 10) || 0,
+            q_start: qStart,
+            q_end: qEnd,
+            q_len: hQLen,
+            t_start: parseInt(h.dbStartPos || h.tStartPos || 0, 10) || 0,
+            t_end: parseInt(h.dbEndPos || h.tEndPos || 0, 10) || 0,
+            t_len: parseInt(h.dbLen || h.tLen || 0, 10) || 0,
+            q_cov_pct: Math.round(qCov * 100) / 100,
+            q_cov_display: qCov > 0 ? (qCov.toFixed(1) + "%") : "N/A",
+            homology_regime: regime,
+            target_structure_url: urlInfo.url,
+            target_structure_format: urlInfo.fmt
+          };
+        });
+
+        var dbBreakdown = Object.keys(dbStats).map(function (k) {
+          var d = dbStats[k];
+          return { database: d.database, count: d.count, mean_prob: d.count ? (d.sumProb / d.count) : 0 };
+        }).sort(function (a, b) { return b.count - a.count; });
+
+        var funcClusters = Object.keys(kwStats).map(function (k) {
+          var c = kwStats[k];
+          return { label: c.label, count: c.count, mean_prob: c.count ? (c.sumProb / c.count) : 0 };
+        }).sort(function (a, b) { return b.count - a.count; });
+
+        var highConf = hits.filter(function (h) { return h.prob >= 0.90; }).length;
+        var twilight = hits.filter(function (h) { return h.prob >= 0.80 && h.seq_identity_pct < 30.0; }).length;
+
+        return {
+          hits: hits,
+          coverage_profile: covProf,
+          database_breakdown: dbBreakdown,
+          functional_clusters: funcClusters,
+          summary_kpis: {
+            total_hits: hits.length,
+            databases_searched: dbBreakdown.map(function (d) { return d.database; }),
+            high_confidence_hits: highConf,
+            twilight_zone_hits: twilight,
+            best_hit_accession: hits.length ? hits[0].accession : "N/A",
+            best_hit_prob: hits.length ? hits[0].prob : 0,
+            best_hit_evalue: hits.length ? hits[0].evalue_display : "N/A",
+            query_len: qLen
+          }
+        };
+      }
+
+      window.loadStructureFromText = function (filename, rawText) {
+        var qStruct = parseStructureClientSide(filename, rawText);
+        var zeroProfile = [];
+        for (var i = 0; i < qStruct.residue_count; i++) { zeroProfile.push(0); }
+
+        DASHBOARD_DATA.generated_at_utc = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
+        DASHBOARD_DATA.query_structure = qStruct;
+        DASHBOARD_DATA.hits = [];
+        DASHBOARD_DATA.coverage_profile = zeroProfile;
+        DASHBOARD_DATA.database_breakdown = [];
+        DASHBOARD_DATA.functional_clusters = [];
+        DASHBOARD_DATA.summary_kpis = {
+          total_hits: 0,
+          databases_searched: [],
+          high_confidence_hits: 0,
+          twilight_zone_hits: 0,
+          best_hit_accession: "N/A",
+          best_hit_prob: 0.0,
+          best_hit_evalue: "N/A",
+          query_len: qStruct.residue_count
+        };
+
+        state.isCustomSession = true;
+        state.selectedRank = null;
+        state.highlightRange = null;
+        state.inspectorMode = "structure";
+        state.profileMetric = "bfactor";
+        state.structDetails = computeStructureDetails(qStruct);
+        if (state.colorScheme === "conservation") {
+          state.colorScheme = "ss";
+          document.getElementById("select-color").value = "ss";
+        }
+
+        syncInspectorView();
+        renderHeaderAndKPIs();
+        populateDbSelect();
+        reloadViewerModel();
+        renderDepthHistogram();
+        renderStructureDetails();
+        refreshAll();
+        setLoadStatus(
+          "Loaded " + qStruct.filename + " (" + qStruct.residue_count + " aa, " + qStruct.atom_count + " atoms)",
+          false
+        );
+        return state.structDetails;
+      };
+
+      window.loadHitsJsonFromText = function (filename, jsonText) {
+        var parsed = JSON.parse(String(jsonText || "{}"));
+        var qLen = (DASHBOARD_DATA.query_structure && DASHBOARD_DATA.query_structure.residue_count) || 1;
+        var norm = normalizeFoldseekHitsClientSide(parsed, qLen);
+
+        DASHBOARD_DATA.generated_at_utc = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
+        DASHBOARD_DATA.hits = norm.hits || [];
+        DASHBOARD_DATA.coverage_profile = norm.coverage_profile || [];
+        DASHBOARD_DATA.database_breakdown = norm.database_breakdown || [];
+        DASHBOARD_DATA.functional_clusters = norm.functional_clusters || [];
+        DASHBOARD_DATA.summary_kpis = norm.summary_kpis;
+
+        state.isCustomSession = true;
+        state.selectedRank = null;
+        state.highlightRange = null;
+        state.inspectorMode = DASHBOARD_DATA.hits.length ? "alignments" : "structure";
+        state.profileMetric = DASHBOARD_DATA.hits.length ? "depth" : "bfactor";
+
+        rebuildMolecularScene();
+        syncInspectorView();
+        renderHeaderAndKPIs();
+        populateDbSelect();
+        refresh3DStyle();
+        renderDepthHistogram();
+        refreshAll();
+        setLoadStatus(
+          "Attached " + DASHBOARD_DATA.hits.length + " alignments from " + (filename || "JSON"),
+          false
+        );
+        return DASHBOARD_DATA.summary_kpis;
+      };
+
+      function restoreDefaultSession() {
+        DASHBOARD_DATA = JSON.parse(INITIAL_PAYLOAD_JSON);
+        var hasHits = !!(DASHBOARD_DATA.hits && DASHBOARD_DATA.hits.length);
+        state.isCustomSession = false;
+        state.selectedRank = null;
+        state.highlightRange = null;
+        state.inspectorMode = hasHits ? "alignments" : "structure";
+        state.profileMetric = hasHits ? "depth" : "bfactor";
+        state.structDetails = computeStructureDetails(DASHBOARD_DATA.query_structure);
+
+        syncInspectorView();
+        renderHeaderAndKPIs();
+        populateDbSelect();
+        reloadViewerModel();
+        renderDepthHistogram();
+        renderStructureDetails();
+        refreshAll();
+        setLoadStatus("Restored default session", false);
+      }
+
+      var foldseekSearchInFlight = false;
+      function runFoldseekLiveSearch() {
+        if (foldseekSearchInFlight) { return; }
+        var q = DASHBOARD_DATA.query_structure;
+        if (!q || !q.raw_coordinates) {
+          setLoadStatus("Load a .pdb or .cif file first", true);
+          return;
+        }
+        var btn = document.getElementById("btn-run-foldseek");
+        foldseekSearchInFlight = true;
+        btn.disabled = true;
+        setLoadStatus("Submitting " + q.filename + " to search.foldseek.com...", false);
+
+        var form = new FormData();
+        var blob = new Blob([q.raw_coordinates], { type: "chemical/x-pdb" });
+        form.append("q", blob, q.filename || "query.pdb");
+        form.append("mode", "3diaa");
+        ["pdb100", "afdb-swissprot", "afdb50", "cath50"].forEach(function (db) {
+          form.append("database[]", db);
+        });
+
+        function pollTicket(ticketId, attempt) {
+          if (attempt > 40) {
+            throw new Error("Foldseek ticket polling timed out");
+          }
+          return fetch("https://search.foldseek.com/api/ticket/" + encodeURIComponent(ticketId))
+            .then(function (r) {
+              if (!r.ok) { throw new Error("Ticket HTTP " + r.status); }
+              return r.json();
+            })
+            .then(function (st) {
+              var status = String(st.status || "").toUpperCase();
+              if (status === "COMPLETE") {
+                return fetch("https://search.foldseek.com/api/result/" + encodeURIComponent(ticketId) + "/0")
+                  .then(function (rr) {
+                    if (!rr.ok) { throw new Error("Result HTTP " + rr.status); }
+                    return rr.text();
+                  });
+              }
+              if (status === "ERROR") {
+                throw new Error("Foldseek server reported ERROR for ticket " + ticketId);
+              }
+              setLoadStatus("Foldseek status: " + (status || "RUNNING") + " (poll " + attempt + ")...", false);
+              return new Promise(function (resolve) {
+                setTimeout(resolve, 2500);
+              }).then(function () {
+                return pollTicket(ticketId, attempt + 1);
+              });
+            });
+        }
+
+        fetch("https://search.foldseek.com/api/ticket", { method: "POST", body: form })
+          .then(function (r) {
+            if (!r.ok) { throw new Error("HTTP " + r.status); }
+            return r.json();
+          })
+          .then(function (ticket) {
+            if (!ticket || !ticket.id) {
+              throw new Error("No ticket ID returned by Foldseek API");
+            }
+            return pollTicket(ticket.id, 1);
+          })
+          .then(function (resultJsonText) {
+            window.loadHitsJsonFromText("search.foldseek.com", resultJsonText);
+          })
+          .catch(function (err) {
+            setLoadStatus("Foldseek API error: " + err.message + " (or use Load Hits JSON)", true);
+          })
+          .then(function () {
+            foldseekSearchInFlight = false;
+            btn.disabled = false;
+          });
+      }
+
+      function handleDroppedOrPickedFile(file) {
+        if (!file) { return; }
+        var name = file.name || "uploaded.pdb";
+        var reader = new FileReader();
+        reader.onload = function (evt) {
+          var content = String((evt && evt.target && evt.target.result) || "");
+          try {
+            if (/\.json$/i.test(name)) {
+              window.loadHitsJsonFromText(name, content);
+            } else {
+              window.loadStructureFromText(name, content);
+            }
+          } catch (err) {
+            setLoadStatus("Load failed: " + err.message, true);
+          }
+        };
+        reader.onerror = function () {
+          setLoadStatus("Failed to read local file " + name, true);
+        };
+        reader.readAsText(file);
+      }
+
+      function refreshAll() {
+        var filtered = getFilteredHits();
+        renderDistributions();
+        renderAlignmentTracks(filtered);
+        renderScatterPlot();
+        renderTableRows(filtered);
+      }
+
+      /* ---------------- Interactive Controls & Live SSE ---------------- */
+      function bindUI() {
+        var pdbInput = document.getElementById("input-pdb-file");
+        var jsonInput = document.getElementById("input-json-file");
+
+        document.getElementById("btn-load-pdb").addEventListener("click", function () {
+          pdbInput.value = "";
+          pdbInput.click();
+        });
+        document.getElementById("btn-card-load-pdb").addEventListener("click", function () {
+          pdbInput.value = "";
+          pdbInput.click();
+        });
+        pdbInput.addEventListener("change", function (e) {
+          if (e.target.files && e.target.files[0]) {
+            handleDroppedOrPickedFile(e.target.files[0]);
+          }
+        });
+
+        document.getElementById("btn-load-json").addEventListener("click", function () {
+          jsonInput.value = "";
+          jsonInput.click();
+        });
+        jsonInput.addEventListener("change", function (e) {
+          if (e.target.files && e.target.files[0]) {
+            handleDroppedOrPickedFile(e.target.files[0]);
+          }
+        });
+
+        document.getElementById("btn-run-foldseek").addEventListener("click", runFoldseekLiveSearch);
+        document.getElementById("btn-restore-session").addEventListener("click", restoreDefaultSession);
+
+        var dropZone = document.getElementById("structure-drop-zone");
+        ["dragenter", "dragover"].forEach(function (evName) {
+          window.addEventListener(evName, function (e) {
+            e.preventDefault();
+            if (dropZone) { dropZone.classList.add("drop-active"); }
+          });
+        });
+        ["dragleave", "drop"].forEach(function (evName) {
+          window.addEventListener(evName, function (e) {
+            if (evName === "drop") {
+              e.preventDefault();
+              if (dropZone) { dropZone.classList.remove("drop-active"); }
+              if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) {
+                handleDroppedOrPickedFile(e.dataTransfer.files[0]);
+              }
+            } else if (!e.relatedTarget && dropZone) {
+              dropZone.classList.remove("drop-active");
+            }
+          });
+        });
+
+        document.getElementById("select-inspector-mode").addEventListener("change", function (e) {
+          state.inspectorMode = e.target.value;
+          syncInspectorView();
+          if (state.inspectorMode === "structure") {
+            renderStructureDetails();
+          }
+        });
+
+        document.getElementById("select-profile-metric").addEventListener("change", function (e) {
+          state.profileMetric = e.target.value;
+          renderDepthHistogram();
+        });
+
+        document.getElementById("depth-svg").addEventListener("click", function (e) {
+          var svg = e.currentTarget;
+          var rect = svg.getBoundingClientRect();
+          if (!rect || !rect.width) { return; }
+          var relX = ((e.clientX - rect.left) / rect.width) * 680;
+          var padL = 32, pW = 638;
+          var frac = Math.max(0, Math.min(0.9999, (relX - padL) / pW));
+          var trace = (DASHBOARD_DATA.query_structure && DASHBOARD_DATA.query_structure.ca_trace) || [];
+          if (!trace.length) { return; }
+          var idx = Math.floor(frac * trace.length);
+          var centerRes = trace[idx].res;
+          var wStart = trace[Math.max(0, idx - 2)].res;
+          var wEnd = trace[Math.min(trace.length - 1, idx + 2)].res;
+          window.highlightResidueRange(wStart, wEnd, "Profile window around Res " + centerRes);
+        });
+
+        document.getElementById("viewer-mode-label").addEventListener("click", function () {
+          if (state.hasWebGL3D) {
+            set3DEngineMode(!state.useFallback3D);
+          }
+        });
+        document.getElementById("select-repr").addEventListener("change", function (e) {
+          state.repr = e.target.value;
+          refresh3DStyle();
+        });
+        document.getElementById("select-color").addEventListener("change", function (e) {
+          state.colorScheme = e.target.value;
+          refresh3DStyle();
+        });
+        document.getElementById("btn-spin-toggle").addEventListener("click", function (e) {
+          state.spinning = !state.spinning;
+          e.currentTarget.classList.toggle("is-on", state.spinning);
+          if (!state.useFallback3D && state.viewer3D) {
+            state.viewer3D.spin(state.spinning ? "y" : false);
+          }
+        });
+        setInterval(function () {
+          if (state.spinning && state.useFallback3D) {
+            state.rotY += 0.028;
+            drawFallback3D();
+          }
+        }, 33);
+
+        document.getElementById("btn-reset-camera").addEventListener("click", function () {
+          state.rotX = -0.42;
+          state.rotY = 0.58;
+          state.panX = 0;
+          state.panY = 0;
+          state.zoom3D = 1.05;
+          if (!state.useFallback3D && state.viewer3D) {
+            state.viewer3D.zoomTo();
+            state.viewer3D.render();
+          } else {
+            drawFallback3D();
+          }
+        });
+
+        document.getElementById("btn-clear-highlight").addEventListener("click", function () {
+          state.selectedRank = null;
+          if (state.targetModel && state.viewer3D) {
+            try { state.viewer3D.removeModel(state.targetModel); } catch (_e) {}
+            state.targetModel = null;
+            document.getElementById("target-overlay-status").textContent = "";
+          }
+          document.getElementById("btn-load-target-3d").style.display = "none";
+          window.highlightResidueRange(0, 0, "");
+          refreshAll();
+        });
+
+        document.getElementById("btn-load-target-3d").addEventListener("click", function (e) {
+          var url = e.currentTarget.getAttribute("data-url");
+          var fmt = e.currentTarget.getAttribute("data-fmt") || "cif";
+          var acc = e.currentTarget.getAttribute("data-acc") || "target";
+          var statusEl = document.getElementById("target-overlay-status");
+          if (!url || state.useFallback3D || !state.viewer3D) {
+            statusEl.textContent = "Switch to WebGL + HTTPS for remote CIF overlay";
+            return;
+          }
+          statusEl.textContent = "Fetching " + acc + "...";
+          fetch(url)
+            .then(function (r) {
+              if (!r.ok) { throw new Error("HTTP " + r.status); }
+              return r.text();
+            })
+            .then(function (txt) {
+              if (state.targetModel) {
+                try { state.viewer3D.removeModel(state.targetModel); } catch (_e) {}
+              }
+              state.targetModel = state.viewer3D.addModel(txt, fmt);
+              state.targetModel.setStyle({}, { cartoon: { color: "#4F46E5", opacity: 0.68 } });
+              state.viewer3D.zoomTo();
+              state.viewer3D.render();
+              statusEl.textContent = "Overlay: " + acc;
+            })
+            .catch(function (err) {
+              statusEl.textContent = "Fetch failed (" + err.message + ")";
+            });
+        });
+
+        document.getElementById("select-track-color").addEventListener("change", function (e) {
+          state.trackColorBy = e.target.value;
+          renderAlignmentTracks(getFilteredHits());
+        });
+        document.getElementById("select-scatter-y").addEventListener("change", function (e) {
+          state.scatterY = e.target.value;
+          renderScatterPlot();
+        });
+
+        document.getElementById("filter-search").addEventListener("input", function (e) {
+          state.searchQuery = e.target.value;
+          refreshAll();
+        });
+        document.getElementById("filter-database").addEventListener("change", function (e) {
+          state.dbFilter = e.target.value;
+          refreshAll();
+        });
+        document.getElementById("filter-regime").addEventListener("change", function (e) {
+          state.regimeFilter = e.target.value;
+          refreshAll();
+        });
+        document.getElementById("filter-min-prob").addEventListener("input", function (e) {
+          state.minProb = parseFloat(e.target.value) || 0;
+          document.getElementById("lbl-min-prob").textContent = state.minProb.toFixed(2);
+          refreshAll();
+        });
+        document.getElementById("filter-min-qcov").addEventListener("input", function (e) {
+          state.minQCov = parseFloat(e.target.value) || 0;
+          document.getElementById("lbl-min-qcov").textContent = Math.round(state.minQCov) + "%";
+          refreshAll();
+        });
+        document.getElementById("btn-reset-filters").addEventListener("click", function () {
+          state.searchQuery = "";
+          state.dbFilter = "ALL";
+          state.regimeFilter = "ALL";
+          state.minProb = 0;
+          state.minQCov = 0;
+          document.getElementById("filter-search").value = "";
+          document.getElementById("filter-database").value = "ALL";
+          document.getElementById("filter-regime").value = "ALL";
+          document.getElementById("filter-min-prob").value = "0";
+          document.getElementById("lbl-min-prob").textContent = "0.00";
+          document.getElementById("filter-min-qcov").value = "0";
+          document.getElementById("lbl-min-qcov").textContent = "0%";
+          refreshAll();
+        });
+
+        Array.prototype.forEach.call(document.querySelectorAll("th[data-sort]"), function (th) {
+          th.addEventListener("click", function () {
+            var k = th.getAttribute("data-sort");
+            if (state.sortKey === k) {
+              state.sortAsc = !state.sortAsc;
+            } else {
+              state.sortKey = k;
+              state.sortAsc = (k === "rank" || k === "evalue" || k === "accession" || k === "database" || k === "q_start" || k === "t_start");
+            }
+            renderTableRows(getFilteredHits());
+          });
+        });
+
+        document.getElementById("btn-export-csv").addEventListener("click", exportCSV);
+        document.getElementById("btn-export-md").addEventListener("click", exportMarkdown);
+
+        // Incremental SSE state updates
+        if (window.EventSource && window.location.protocol.indexOf("http") === 0 && window.location.search.indexOf("sse=1") !== -1) {
+          try {
+            var sse = new EventSource("/events");
+            sse.addEventListener("dashboard_update", function (evt) {
+              try {
+                DASHBOARD_DATA = JSON.parse(evt.data);
+                state.structDetails = computeStructureDetails(DASHBOARD_DATA.query_structure);
+                rebuildMolecularScene();
+                syncInspectorView();
+                renderHeaderAndKPIs();
+                populateDbSelect();
+                refresh3DStyle();
+                renderDepthHistogram();
+                renderStructureDetails();
+                refreshAll();
+              } catch (_err) {}
+            });
+          } catch (_err) {}
+        }
+      }
+
+      state.structDetails = computeStructureDetails(DASHBOARD_DATA.query_structure);
+      initTheme();
+      syncInspectorView();
+      renderHeaderAndKPIs();
+      populateDbSelect();
+      init3DViewer();
+      renderDepthHistogram();
+      renderStructureDetails();
+      refreshAll();
+      bindUI();
+    })();
+  </script>
+</body>
+</html>
